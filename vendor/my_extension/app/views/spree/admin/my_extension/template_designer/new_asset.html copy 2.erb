@@ -1,0 +1,418 @@
+<%= stylesheet_link_tag 'spree/backend/my_extension/template_designer', media: 'all' %>
+<%= tag.meta name: "csrf-token", content: csrf_meta_tags %>
+<%= tag.meta name: "turbo-cache-control", content: "no-cache" %>
+
+<script type="text/javascript">
+  document.addEventListener("DOMContentLoaded", function () {
+   
+
+ 
+    function loadTemplateDesign() {
+      <% if params[:id].present? %>
+        fetch('/admin/template-designer-assets/<%= params[:id] %>')
+          .then(response => response.json())
+  .then(asset => {
+    console.log("Fetched asset:", asset);
+    //  loadDesign(asset.data);
+  }) 
+          .catch(error => {
+            console.log("error",error)
+            console.error('Error fetching design:', error);
+            alert("Failed to fetch design.");
+          });
+      <% end %>
+    }
+
+   loadTemplateDesign()
+  });
+</script>
+
+<div class="pt-3">
+  <div class="design-template w-100">
+    <div class="d-flex justify-content-between" style="gap:10px">
+      <div style="width:50%; padding:1rem;">
+        <h4>Basic Information</h4>
+
+        <!-- Name -->
+        <%= label_tag 'asset_name', 'Name:', class: 'vertical-margin' %>
+        <%= text_field_tag 'asset_name', nil, placeholder: 'e.g. Birthday Poster', class: 'form-control mb-3' %>
+
+        <!-- Thumbnail Upload -->
+        <label class="vertical-margin d-block">Thumbnail (Optional):</label>
+        <div class="position-relative mb-3" style="width: 80px; height: 80px; border:1px solid #ccc">
+          <%= file_field_tag 'thumbnail', accept: 'image/*', class: 'd-none', id: 'thumbnail-upload' %>
+          <label for="thumbnail-upload" id="thumbnail-label"
+                 class="d-flex flex-column align-items-center justify-content-center border border-secondary border-dashed rounded overflow-hidden"
+                 style="width: 100%; height: 100%; cursor: pointer; text-align: center;">
+            <i class="ti ti-cloud-up  upload-icon-image" ></i>
+          </label>
+        </div>
+
+        <!-- Radio Options -->
+          <%= label_tag nil, 'Display options on personalization form as:', class: 'vertical-margin d-block' %>
+
+        <div class="form-check mb-2">
+          <%= radio_button_tag 'display_option', 'thumbnail', true, id: 'option1', class: 'form-check-input' %>
+          <%= label_tag 'option1', 'Thumbnail Images', class: 'form-check-label' %>
+        </div>
+
+        <div class="form-check mb-2">
+          <%= radio_button_tag 'display_option', 'dropdown', false, id: 'option2', class: 'form-check-input' %>
+          <%= label_tag 'option2', 'Dropdown list of Image name', class: 'form-check-label' %>
+        </div>
+
+        <div class="form-check mb-2">
+          <%= radio_button_tag 'display_option', 'dropdown-thumbnail', false, id: 'option3', class: 'form-check-input' %>
+          <%= label_tag 'option3', 'Dropdown list of Image name + Thumbnail', class: 'form-check-label' %>
+        </div>
+          <div class="form-check mb-3">
+          <%= radio_button_tag 'display_option', 'dropdown-color', false, id: 'option4', class: 'form-check-input' %>
+          <%= label_tag 'option4', 'Dropdown list of Colors', class: 'form-check-label' %>
+        </div>
+        <div class="form-check mb-3">
+          <%= radio_button_tag 'display_option', 'inline', false, id: 'option5', class: 'form-check-input' %>
+          <%= label_tag 'option4', 'Inline button of Image', class: 'form-check-label' %>
+        </div>
+         <div class="form-check mb-3">
+          <%= radio_button_tag 'display_option', 'inline-image', false, id: 'option6', class: 'form-check-input' %>
+          <%= label_tag 'option4', 'Inline button of Image + name', class: 'form-check-label' %>
+        </div>
+         <div class="form-check mb-3">
+          <%= radio_button_tag 'display_option', 'inline-color', false, id: 'option7', class: 'form-check-input' %>
+          <%= label_tag 'option4', 'Inline button of Image + name', class: 'form-check-label' %>
+        </div>
+
+        <!-- Show Hover -->
+        <div class="form-check form-switch">
+          <%#= check_box_tag 'show_hover_name', '1', false, class: 'form-check-input', id: 'showHoverName' %>
+          <%#= label_tag 'showHoverName', 'Show option name on hover', class: 'form-check-label' %>
+        </div>
+        <div class="text-end mt-3 px-3">
+          <button id="save-button" class="btn btn-primary" onClick="collectAndValidateFormData()">Save</button>
+        </div>
+      </div>
+
+      <div style="width:50%; padding:1rem;">
+        <!-- Drag & Drop Upload Area -->
+        <div id="drop-area" class="drag-drop-container text-center p-3 border border-secondary border-dashed rounded mb-3" style="cursor: pointer;">
+          <input type="file" id="image-upload" class="d-none" multiple accept="image/*">
+          <i class="ti ti-cloud-up  upload-icon-image mb-2"></i>
+          <p>Drag & drop images here or click to upload</p>
+        </div>
+
+        <!-- Image List -->
+        <div id="image-list" class="d-flex flex-column gap-3"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+
+  function collectAndValidateFormData() {
+    const assetName = document.getElementById('asset_name').value.trim();
+    const displayOption = document.querySelector('input[name="display_option"]:checked');
+    const thumbnailInput = document.getElementById('thumbnail-upload');
+    const thumbnail = thumbnailInput.files[0];
+    // const showHover = document.getElementById('showHoverName').checked;
+
+    if (!assetName) {
+      alert("Name is required.");
+      return null;
+    }
+
+    if (!displayOption) {
+      alert("Please select a display option.");
+      return null;
+    }
+
+    const imageList = document.getElementById('image-list');
+    const imageRows = Array.from(imageList.children);
+    if (imageRows.length === 0) {
+      alert("Please upload at least one image.");
+      return null;
+    }
+
+    const images = [];
+
+    for (const row of imageRows) {
+      const mainImg = row.querySelector('img[alt="Image"]');
+      const thumbInput = row.querySelector('input[type="file"]:not(#image-upload):not(#thumbnail-upload)');
+      const thumbImg = row.querySelector(`#${thumbInput?.id}-label img`);
+      const nameInput = row.querySelector('input[type="text"]');
+      const colorInput = row.querySelector('input[type="color"]');
+
+      const imageData = {
+        name: nameInput?.value.trim() || '',
+        image: mainImg?.src || null,
+        thumbnail: thumbImg?.src ||null,
+        color: colorInput?.value ||null,
+      };
+
+      if (!imageData.image) continue;
+
+      images.push(imageData);
+    }
+
+    let final = {
+      name: assetName,
+      display_option: displayOption.value,
+      thumbnail:thumbnail ||null,
+      // show_hover_name: showHover,
+      images
+    };
+
+    console.log("displayOption.value", displayOption.value);
+
+    if (displayOption.value === 'thumbnail') {
+      final = { ...final, onlyName: false,showColor:false, nameAndImage: false, onlyImage: false, showThumbnail: true, inputType: 'image-radio' };
+    } else if (displayOption.value === 'dropdown') {
+      final = { ...final, onlyName: true, nameAndImage: false, showColor:false,onlyImage: false, showThumbnail: false, inputType: 'image-drop-down' };
+    } else if (displayOption.value === 'dropdown-thumbnail') {
+      final = { ...final, onlyName: false, nameAndImage: true, showColor:false,onlyImage: false, showThumbnail: false, inputType: 'image-drop-down' };
+    } else if (displayOption.value === 'inline-image') {
+      final = { ...final, onlyName: false, nameAndImage: true, showColor:false,onlyImage: false, showThumbnail: false, inputType: 'image-radio' };
+    } else if (displayOption.value === 'dropdown-color') {
+      final = { ...final, onlyName: false, nameAndImage: false,showColor:true, onlyImage: false, showThumbnail: false, inputType: 'image-drop-down' };
+    } else if (displayOption.value === 'inline-color') {
+      final = { ...final, onlyName: false, nameAndImage: false,showColor:true, onlyImage: false, showThumbnail: false, inputType: 'image-radio' };
+    } else {
+      final = { ...final, onlyImage: true, onlyName: false, showColor:false,nameAndImage: false, showThumbnail: false, inputType: 'image-radio' };
+    }
+
+    console.log("final", final);
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    fetch("<%= admin_create_template_designer_asset_path %>", {
+      method: "POST",
+    headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'X-CSRF-Token': csrfToken
+      },
+      body: JSON.stringify({
+        asset: {
+          name: assetName,
+          data: final
+        }
+      })
+      
+    })
+      .then(response => {
+        if (!response.ok) throw new Error("Network response was not ok");
+        return response.json();
+      })
+      .then(data => {
+        alert("Asset created successfully!");
+        window.location.href = "/admin/template-designer-assets"; 
+      })
+      .catch(error => {
+        console.error("Error:", error);
+        alert("Failed to create asset.");
+      });
+    return final;
+  }
+
+
+
+  document.addEventListener("DOMContentLoaded", function () {
+    // Thumbnail Preview
+    const input = document.getElementById("thumbnail-upload");
+    const label = document.getElementById("thumbnail-label");
+
+    input.addEventListener("change", function (e) {
+      const file = e.target.files[0];
+      if (file && file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          label.innerHTML = `
+            <img src="${e.target.result}" alt="Thumbnail"
+              style="width: 100%; height: 100%; object-fit: cover;" />
+          `;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Optional reset on double click
+    label.addEventListener("dblclick", () => {
+      input.value = "";
+      label.innerHTML = ` <i class="ti ti-cloud-up  upload-icon-image" ></i>`;
+    });
+
+    // Drag and Drop Upload
+    const dropArea = document.getElementById('drop-area');
+    const uploadInput = document.getElementById('image-upload');
+    const imageList = document.getElementById('image-list');
+
+    dropArea.addEventListener('click', () => uploadInput.click());
+    uploadInput.addEventListener('change', () => handleFiles(uploadInput.files));
+
+    ['dragenter', 'dragover'].forEach(event => {
+      dropArea.addEventListener(event, e => {
+        e.preventDefault();
+        dropArea.classList.add('border-primary');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(event => {
+      dropArea.addEventListener(event, e => {
+        e.preventDefault();
+        dropArea.classList.remove('border-primary');
+      });
+    });
+
+    dropArea.addEventListener('drop', e => {
+      e.preventDefault();
+      handleFiles(e.dataTransfer.files);
+    });
+   
+   function handleFiles(files) {
+    [...files].forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const row = document.createElement('div');
+        row.className = 'd-flex align-items-start gap-3 p-2 border rounded position-relative';
+
+        const uniqueId = `thumb-upload-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        const colorId = `color-picker-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+        // LEFT SIDE IMAGES
+        const imageWrapper = document.createElement('div');
+        imageWrapper.className = 'd-flex';
+        imageWrapper.style.gap = '5px';
+
+        const uploadedImgBox = document.createElement('div');
+        uploadedImgBox.style.width = '100px';
+        uploadedImgBox.style.textAlign = 'center';
+        uploadedImgBox.style.border = '1px solid #ccc';
+
+        const uploadedImg = document.createElement('img');
+        uploadedImg.src = e.target.result;
+        uploadedImg.alt = 'Image';
+        uploadedImg.style.height = '80px';
+        uploadedImg.style.objectFit = 'cover';
+        uploadedImg.style.borderRadius = '4px';
+        uploadedImgBox.appendChild(uploadedImg);
+
+        const thumbnailWrapper = document.createElement('div');
+        thumbnailWrapper.style.cssText = 'width: 100px; height:100px; border:1px solid #ccc; position: relative;';
+
+        const thumbInput = document.createElement('input');
+        thumbInput.type = 'file';
+        thumbInput.accept = 'image/*';
+        thumbInput.id = uniqueId;
+        thumbInput.className = 'd-none';
+
+        const thumbLabel = document.createElement('label');
+        thumbLabel.htmlFor = uniqueId;
+        thumbLabel.id = `${uniqueId}-label`;
+        thumbLabel.className = 'd-flex align-items-center justify-content-center';
+        thumbLabel.style.cssText = 'width: 100px; text-align:center; height:100%;  cursor: pointer;';
+        thumbLabel.innerHTML = '<i class="ti ti-cloud-up upload-icon-image"></i>';
+
+        thumbnailWrapper.appendChild(thumbInput);
+        thumbnailWrapper.appendChild(thumbLabel);
+
+        imageWrapper.appendChild(uploadedImgBox);
+        imageWrapper.appendChild(thumbnailWrapper);
+        row.appendChild(imageWrapper);
+
+        // RIGHT SIDE CONTENT
+        const rightSide = document.createElement('div');
+        rightSide.className = 'flex-grow-1 d-flex flex-column gap-2';
+
+        // Text input for name
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'form-control';
+        nameInput.style.cssText = 'width:fit-content; margin-bottom:8px;';
+        nameInput.value = file.name.replace(/\.[^/.]+$/, '');
+        rightSide.appendChild(nameInput);
+
+        // Color Picker Section
+        const colorWrapper = document.createElement('div');
+
+        const colorLabel = document.createElement('label');
+        colorLabel.style.cssText = 'display: flex; align-items: center; gap: 10px; cursor: pointer;';
+
+        const colorDisplay = document.createElement('div');
+        colorDisplay.className = 'custom-color-box border rounded d-flex align-items-center justify-content-center';
+        colorDisplay.id = `${colorId}-display`;
+        colorDisplay.style.cssText = 'width: 40px; height: 40px; background-color: transparent; position: relative;';
+
+        const fallbackImg = document.createElement('img');
+        fallbackImg.id = `${colorId}-fallback`;
+        fallbackImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEgAAABICAIAAAGtiBSGAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAA3FpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNS1jMDE0IDc5LjE1MTQ4MSwgMjAxMy8wMy8xMy0xMjowOToxNSAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0UmVmPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VSZWYjIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDo5ZjNhOTg5Ni0xM2Y4LTlhNDMtYTU2MC1iYzMwYTUyZjAxODIiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6NDlCMzNGQkFGMDk0MTFFM0I0Nzk5Q0U5REM0MDk4MTUiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6NDlCMzNGQjlGMDk0MTFFM0I0Nzk5Q0U5REM0MDk4MTUiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENDIChXaW5kb3dzKSI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOjhiOTBiNmY4LWIxZTQtMWM0Mi1hYzMzLTE3ZTMwMGFlZjRiMyIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDo5ZjNhOTg5Ni0xM2Y4LTlhNDMtYTU2MC1iYzMwYTUyZjAxODIiLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz6k4uTRAAAA9klEQVR42mI8ffo0Aw7AxIAbDAc5gABi/P///0j1O0AAMQD9Dox6Ukm8RpLpklFttNcGEEAMZMQ1KHeQl0pGbRu1bdQ2+tkGEECMkErcxMQESJ45c4ambGitSWtrIGwW+lgz6rNRn436bNRnoz4b9RlN2QAB2K9jGgAAEAaC/l2jgKXDT1cHcE0I6aVef4Up6RrTydI2MmPGjBkzZsyYMWPGjBmzNydAe3ZoAwAMAgEw3X/pijdMQFM4JIrwnOLUF3amSGWWf/utW3xwizNSqv25iTHGGGOMMcYYY4wxxhhjjDHGGGOMMcYYY4wxxhhjjDHG2CJjF9mijqqXrpprAAAAAElFTkSuQmCC'; // (shortened)
+        fallbackImg.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+        colorDisplay.appendChild(fallbackImg);
+
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.id = colorId;
+        colorInput.value = '';
+        colorInput.style.cssText = 'visibility:hidden; width: 40px; height: 40px; border: none; background: none; padding: 0;';
+
+        colorLabel.appendChild(colorDisplay);
+        colorLabel.appendChild(colorInput);
+        colorWrapper.appendChild(colorLabel);
+        rightSide.appendChild(colorWrapper);
+
+        // Append right section to row
+        row.appendChild(rightSide);
+
+        // Delete button
+        const deleteBtn = document.createElement('span');
+        deleteBtn.innerHTML = '&times;';
+        deleteBtn.title = 'Remove';
+        deleteBtn.style.cssText = `
+          position: absolute;
+          top: 5px;
+          right: 10px;
+          font-size: 20px;
+          color: #dc3545;
+          cursor: pointer;
+        `;
+        deleteBtn.addEventListener('click', () => {
+          if (confirm('Are you sure you want to remove this image?')) {
+            row.remove();
+          }
+        });
+        row.appendChild(deleteBtn);
+
+        // Color input event
+        colorInput.addEventListener('input', (e) => {
+          const color = e.target.value;
+          if (color) {
+            colorDisplay.style.backgroundColor = color;
+            fallbackImg.style.display = 'none';
+          } else {
+            colorDisplay.style.backgroundColor = 'transparent';
+            fallbackImg.style.display = 'block';
+          }
+        });
+
+        // Thumbnail file change event
+        thumbInput.addEventListener("change", function (e) {
+          const thumbFile = e.target.files[0];
+          if (thumbFile && thumbFile.type.startsWith("image/")) {
+            const reader2 = new FileReader();
+            reader2.onload = function (ev) {
+              thumbLabel.innerHTML = `<img src="${ev.target.result}" alt="Thumbnail" style=" height: 80px; object-fit: cover; border-radius: 4px;" />`;
+            };
+            reader2.readAsDataURL(thumbFile);
+          }
+        });
+
+        imageList.appendChild(row);
+      };
+
+      reader.readAsDataURL(file);
+    });
+    }
+
+  });
+
+</script>

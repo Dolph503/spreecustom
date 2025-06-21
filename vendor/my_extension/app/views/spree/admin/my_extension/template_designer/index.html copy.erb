@@ -1,0 +1,2316 @@
+
+<%= stylesheet_link_tag 'spree/backend/my_extension/template_designer', media: 'all' %>
+<%= tag.meta name: "csrf-token", content: csrf_meta_tags %>
+<%= tag.meta name: "turbo-cache-control", content: "no-cache" %>
+<%# Load Fabric %>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+<%# Load Fonts %>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        fetch('/admin/font')
+            .then(response => response.json())
+            .then(fonts => {
+                fonts.forEach(font => {
+                    const fontName = font.name;
+                    const fontUrl = font.url;
+
+                    const newFont = new FontFace(fontName, `url(${fontUrl})`);
+                    newFont.load().then(function (loadedFace) {
+                        document.fonts.add(loadedFace);
+                    }).catch(err => {
+                        console.error(`Failed to load font "${fontName}":`, err);
+                    });
+                });
+            })
+            .catch(error => {
+                console.error('Error loading fonts:', error);
+            });
+    });
+</script>
+
+<%# HTML Code %>
+<div class=" pt-3">
+    <div class="design-template w-100">
+        <h2>Product Template Customizer</h2>
+        <div style="display:flex;  justify-content: space-between; margin-bottom:5px">
+            <div class="btn-controls">
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="openTemplatePopup()">Add
+                    Template</button>
+                <h6 class="vertical-margin"> or </h6>
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="loadTemplateFromDB()">📂 Load
+                    Template</button>
+            </div>
+            <div class="btn-controls">
+                <button id="save-template-btn" class="mt-2 btn btn-sm btn-primary with-tip "
+                    style="display: inline-block;" onclick="showSave()">💾 Save As Template</button>
+                <button id="update-template-btn" class="mt-2 btn btn-sm btn-warning with-tip " style="display: none;"
+                    onclick="updateDesign()">🔁 Update Template</button>
+                <button id="new-template-btn" class="mt-2 btn btn-sm btn-success with-tip" style="display: none;"
+                    onclick="showSave()">➕ New Template</button>
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="bringForward()">🔼
+                    Forward</button>
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="sendBackward()">🔽
+                    Backward</button>
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="openControls()">➕ Add
+                    Control</button>
+
+            </div>
+        </div>
+        <div id="popup-overlay" class="popup-overlay" onclick="closeTemplatePopup()"></div>
+        <div id="template-popup" class="popup">
+            <h3>Add Template</h3>
+            <br>
+            <div class='btn-controls justify-content-end'>
+               
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="showVariantInput()">
+                    + Add Variant Type
+                </button>
+            </div>
+            <div id="new-variant-type-wrapper" style="display: none; margin-top: 10px;">
+                <label class='vertical-margin'>Variant Name:</label>
+                <input type="text" id="new-variant-type-name" placeholder="New Variant Type Name"
+                    class="form-control mb-3">
+                <button class="mt-2 btn btn-sm btn-primary w-100" onclick="addVariantType()">
+                    + Confirm Variant Type
+                </button>
+                <button class="mt-2 btn btn-sm btn-primary w-100" onclick="hideVariantInput()">
+                    Cancel
+                </button>
+            </div>
+            <br>
+            <hr>
+            <br>
+            <div id="temp-base-img">
+                <h4 class='vertical-margin'>Upload Base Template Image Or select from the gallery</h4>
+                <br>
+                <br>
+                <div class="d-flex align-items-center gap-2">
+                    <label for="base-template-upload" class="btn btn-sm btn-primary mb-0">
+                        Upload Images
+                    </label>
+                    <input type="file" id="base-template-upload" accept="image/*" multiple class="d-none">
+                    <button class="btn btn-sm btn-primary" onclick="loadGalleryFromDB()">
+                        Load Gallery
+                    </button>
+                </div>
+                <br><br>
+                <div id="gallery-section" style="display: none; margin-top: 10px;">
+                    <div class='btn-controls'>
+                        <h4>Gallery Images</h4>                        
+                    </div>
+                    <div class="gallery" id="gallery-db-list"  style="max-height: 400px; overflow-y: auto;">
+                        <% @gallery_images.each_with_index do |image, index| %>
+                            <div class="gallery-item">
+                                <% if image.image.attached? %>
+                                    <%= image_tag main_app.url_for(image.image), alt: image.title %>
+                                        <p>
+                                            <%= truncate(image.title, length: 20) %>
+                                        </p>
+                                        <%= button_to 'Delete' , spree.admin_destroy_gallery_image_path(image.id),
+                                            method: :delete, data: { confirm: 'Are you sure?' }, class: 'btn btn-danger'%>
+                                    <% end %>
+                            </div>
+                        <% end %>
+                    </div>
+                    <div class="btn-controls justify-content-between">
+                        <button class="btn btn-sm btn-primary" onclick="addFromGallery()">
+                            Done
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="closeFromGallery()">
+                            Close
+                        </button>
+                    </div>
+                </div>
+                
+            </div>
+            <hr>
+
+            
+            <div id="variant-section"></div>
+            
+            <br>
+            <div class="btn-controls justify-content-between">
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="addTemplate()">Add
+                    Template</button>
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                    onclick="closeTemplatePopup()">Close</button>
+            </div>
+        </div>
+        <div id="template-control-popup" class="popup">
+            <h3>Add New Control</h3>
+            <div id="contrl-section-section">
+                <label class='vertical-margin'>Select Control Type:</label>
+                <select class="form-control mb-3" id="control-type" onchange="handleControlTypeChange(this)">
+                    <option value="">-- Select --</option>
+                    <option value="text">Text</option>
+                    <option value="textarea">Notes</option>
+                    <option value="date">Date</option>
+                    <option value="number">Number</option>
+                    <option value="image-swatcher">Image Swatcher</option>
+                    <option value="image-drop-down">Image Drop Down</option>
+                </select>
+
+                <div id="img-container" style="display: none;">
+                    <hr>
+                    <h4 style="padding: 15px 0;">Image Upload or Select from Gallery:</h4>
+                    <div class=" align-items-start">
+                        <div id="image-preview-list"
+                            style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+                        </div>
+                        <div class='btn-controls justify-content-between mt-2'>
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="image-upload" class="btn btn-sm btn-primary mb-0">
+                                Choose Image
+                            </label>
+                            <input type="file" id="image-upload" accept="image/*" multiple class="d-none"
+                                onchange="addImage()">
+                            <img id="image-preview" src="" alt=""
+                                style="display: none; max-height: 50px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <button class="btn btn-sm btn-secondary" onclick="openGallery()">Load From Gallery</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="text-container" style="display: none;">
+                     <hr>
+                    <h4 id="control-heading" style='padding:15px 0;'>Add Text</h4>
+                    <div>
+                        <label id='field-value' class='vertical-margin'>Text Value:</label>
+                        <input type="text" id="text-input" class="form-control mb-3" placeholder="Enter Value" />
+                        <div id="min-max" style="margin: 10px 0;">
+                            <label class='vertical-margin'>Min Characters:</label>
+                            <input type="number" id="min-char" class="form-control mb-3" value="1" min="0" />
+                            <label class='vertical-margin'>Max Characters:</label>
+                            <input type="number" id="max-char" class="form-control mb-3" value="50" min="1" />
+                        </div>
+                        <small id="char-error" style="color: red; display: none;"></small>
+                        <label class='vertical-margin'>Font Size:</label>
+                        <input type="number" id="font-size" class="font-size form-control mb-3" value="20" min="1" max="50" />
+                        <label class='vertical-margin'>Font Color:</label>
+                        <input type="color" id="font-color" class="w-100 font-color form-control mb-3"
+                            value="#000000" />
+                        <label class='vertical-margin'>Font Family:</label>
+                        <select id="font-family" class="font-family form-control mb-3">
+                            <% if @fonts.present? && @fonts.any? %>
+                                <% @fonts.each do |font| %>
+                                    <option value="<%= font.name %>">
+                                        <%= font.name %>
+                                    </option>
+                                <% end %>
+                            <% else %>
+                                <option value="Arial">Arial</option>
+                                <option value="Verdana">Verdana</option>
+                                <option value="Courier New">Courier New</option>
+                            <% end %>
+                        </select>
+                        <div class="vertical-margin text-alignment mb-3">
+                            <label class='vertical-margin'>Text Alignment</label>
+                            <br>
+                            <button type="button" class="transparent-button alignment-btn" id="align-left">Left</button>
+                            <button type="button" class="transparent-button alignment-btn"
+                                id="align-center">Center</button>
+                            <button type="button" class="transparent-button alignment-btn"
+                                id="align-right">Right</button>
+                        </div>
+                        <div class="vertical-margin text-style mb-3">
+                            <label class='vertical-margin'>Text Style</label>
+                            <br>
+                            <button type="button" class="transparent-button style-btn" id="bold">B</button>
+                            <button type="button" class="transparent-button style-btn" id="italic">I</button>
+                            <button type="button" class="transparent-button style-btn" id="underline">U</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+             <hr>
+            <div class="btn-controls justify-content-between">
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="addControl()">Add Control</button>
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="closeControls()">Close</button>
+            </div>
+        </div>
+        <div id="gallery-popup" class="popup">
+            <h3>Add Image</h3>
+             <div id="option-preview" style='display:flex; gap:5px; flex-wrap:wrap;'>
+            </div>
+            <div id="gallery-section-1" style=" margin-top: 10px;">
+            </div>
+            <div class="btn-controls justify-content-between">
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="addTemplate()">Add Image</button>
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="closeGallery()">Close</button>
+            </div>
+        </div>
+        <div id="save-template-popup" class="popup">
+            <h3>Save Template</h3>
+            <div style=" margin-top: 10px;">
+                <label class='vertical-margin'>Template Name:</label>
+                <input type="text" id="template-name" placeholder="Template Name" class="form-control mb-3">
+            </div>
+            <div class="btn-controls justify-content-between">
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="saveDesign()">Save</button>
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="closeSave()">Close</button>
+            </div>
+        </div>
+        <div id="load-template-popup" class="popup">
+            <h3>Add Template</h3>
+            <div id="load-template" style=" margin-top: 10px;">
+            </div>
+            <div class="btn-controls justify-content-between">
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="addLoadedTemplate()">Load</button>
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                    onclick="closeLoadTemplate()">Close</button>
+            </div>
+        </div>
+        <div style="width: 100%; display: flex; gap: 20px; margin-top: 25px; height: 700px;">
+            <div style="width: 60%;">
+                <canvas id="canvas" width="700" height="700" style="width: 100%; max-width: 100%;"></canvas>
+            </div>
+            <div style="width: 40%; overflow-y: auto; height: 700px;">
+                <div id="variant-gallery-display"></div>
+                <div id="controls-container">
+                    
+                </div>
+            </div>
+        </div>
+        <input type="file" id="image-upload-option" style="display: none" onchange="handleOptionImageUpload()" />
+    </div>
+</div>
+
+<%# Variant Section %>
+<script>
+    window.canvas = new fabric.Canvas('canvas', { preserveObjectStacking: true });
+        window.baseImageObj = null;
+        window.selectedTemplate = null;
+        window.selectedGalleryImageUrl = null;
+        window.selectedBaseImage = null;
+        window.currentImageObj = null;
+        window.textObjects = [];
+        window.loadedTemplateName =null;
+        window.currentProduct = {
+            name:null,
+            type: '',
+            variants: [],
+            controls:[],
+            selectedVariantImageUrl: ''
+        };
+        window.productImageList = [];
+        window.uploadedImages = [];
+        window.selectedGalleryImageUrls = [];
+        
+    
+    window.bringForward = function () {
+        const active = window.canvas.getActiveObject();
+        if (active) window.canvas.bringForward(active);
+    }
+
+    window.sendBackward = function () {
+        const active = window.canvas.getActiveObject();
+        if (active) window.canvas.sendBackwards(active);
+    }
+    window.openTemplatePopup = function () {
+            document.getElementById('popup-overlay').style.display = 'block';
+            document.getElementById('template-popup').classList.add('show');
+            updateVariantSection()
+    }
+
+    window.closeTemplatePopup = function () {
+        document.getElementById('popup-overlay').style.display = 'none';
+        document.getElementById('template-popup').classList.remove('show');
+    }
+    
+    window.showSave = function () {
+        document.getElementById('popup-overlay').style.display = 'block';
+        document.getElementById('save-template-popup').classList.add('show');
+    }
+
+    window.closeSave = function () {
+        document.getElementById('popup-overlay').style.display = 'none';
+        document.getElementById('save-template-popup').classList.remove('show');
+    }
+
+    window.closeLoadTemplate = function () {
+        document.getElementById('popup-overlay').style.display = 'none';
+        document.getElementById('load-template-popup').classList.remove('show');
+    }
+    
+    window.addLoadedTemplate = function () {
+        if (window.selectedTemplate) {
+            loadDesign(window.selectedTemplate.data)
+        }
+        else {
+            alert("Select a template first!");
+        }
+    }
+    window.updateTemplateActionButtons = function () {
+        if (window.selectedTemplate) {
+            document.getElementById('save-template-btn').style.display = 'none';
+            document.getElementById('update-template-btn').style.display = 'inline-block';
+            document.getElementById('new-template-btn').style.display = 'inline-block';
+        } else {
+            document.getElementById('save-template-btn').style.display = 'inline-block';
+            document.getElementById('update-template-btn').style.display = 'none';
+            document.getElementById('new-template-btn').style.display = 'none';
+        }
+    }
+
+    window.loadTemplateFromDB = function () {
+        document.getElementById('popup-overlay').style.display = 'block';
+        document.getElementById('load-template-popup').classList.add('show');
+        fetch("/admin/templates").then(response => {
+            if (!response.ok) throw new Error("Network response was not ok");
+            return response.json();
+        }).then(images => {
+            const gallerySection = document.getElementById("load-template");
+            gallerySection.innerHTML = "";
+            gallerySection.style.display = "flex";            
+            gallerySection.style.flexWrap = "wrap";
+            gallerySection.style.gap = "2px";
+
+            images.forEach(image => {
+                const imageParent = document.createElement("div");
+                imageParent.className = 'image-parent-div'
+                const img = document.createElement("img");
+                img.src = image.data.preview;
+                img.style.width = "150px";
+                img.style.height = "150px";
+                img.style.margin = "5px";
+                img.style.cursor = "pointer";
+                img.style.border = '1px solid';
+                img.onclick = () => {
+                    document.querySelectorAll("#load-template img").forEach(el => el.classList.remove("selected"));
+                    window.selectedTemplate = image
+                    img.classList.add("selected");
+                };
+                imageParent.appendChild(img)
+                const nameSpan = document.createElement('div')
+                nameSpan.className='text-center'
+                nameSpan.textContent = image.data.name
+                imageParent.appendChild(nameSpan)
+                gallerySection.appendChild(imageParent);
+            });
+        }).catch(error => {
+            console.error("Failed to load gallery images:", error);
+            alert("Failed to load gallery images.");
+        });
+    }
+
+    window.updateVariantSection = function () {
+        const variantSection = document.getElementById('variant-section');
+        if(variantSection){
+        variantSection.innerHTML = '';
+        }
+        window.productImageList.forEach((variant, index) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'variant-wrapper mb-4';
+            wrapper.innerHTML = `<br><br>`;
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'btn-controls justify-content-between'
+            const label = document.createElement('span');
+            label.className = "vertical-margin"
+            label.innerHTML = `<h4 class="vertical-margin">${variant.name}</h4>`
+            const addVariantButton = document.createElement('button');
+            addVariantButton.innerText = '+ Add Variant';
+            addVariantButton.className = 'mt-2 btn btn-sm btn-primary';
+            addVariantButton.onclick = () => {
+                document.querySelectorAll('.variant-form-container').forEach(c => c.innerHTML = '');
+                showVariantForm(index, formContainer,variant.name);
+            };
+            const deleteDiv = document.createElement('div');
+            deleteDiv.className = 'btn-controls justify-content-end'
+            const deleteVariantTypeButton = document.createElement('button');
+                deleteVariantTypeButton.innerText = 'Delete Type';
+                deleteVariantTypeButton.className = ' mt-2 btn btn-sm btn-danger ms-2';
+                deleteVariantTypeButton.onclick = () => {
+                    if (confirm(`Are you sure you want to delete "${variant.name}" and all its variants?`)) {
+                        window.productImageList.splice(index, 1);
+                        updateVariantSection();
+                    }
+            };
+            deleteDiv.appendChild(deleteVariantTypeButton)
+            labelDiv.appendChild(label);
+            labelDiv.appendChild(addVariantButton);
+            wrapper.appendChild(labelDiv);
+            if (variant.values.length > 0) {
+                const group = document.createElement('div');
+                group.className = 'variant-group d-flex flex-wrap gap-2 mt-2';
+
+                variant.values.forEach((value, valueIndex) => {
+                    const valueContainer = document.createElement('div');
+                    valueContainer.className = 'variant-item position-relative';
+                    valueContainer.innerHTML = `
+                    <img src="${value.pictureUrl}" alt="${value.value}" class="img-thumbnail" style="width: 80px; height: 80px;" />
+                `;
+
+                    const removeIcon = document.createElement('span');
+                    removeIcon.innerText = '×';
+                    removeIcon.className = 'remove-icon';
+                    Object.assign(removeIcon.style, {
+                        position: 'absolute',
+                        top: '5px',
+                        right: '5px',
+                        cursor: 'pointer',
+                        background: '#fff',
+                        border: '1px solid #ccc',
+                        borderRadius: '50%',
+                        width: '20px',
+                        height: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 'bold',
+                        zIndex: 1
+                    });
+
+                    removeIcon.onclick = () => {
+                        variant.values.splice(valueIndex, 1);
+                        updateVariantSection();
+
+                    };
+
+                    valueContainer.appendChild(removeIcon);
+                    group.appendChild(valueContainer);
+                });
+
+                wrapper.appendChild(group);
+            }
+            const formContainer = document.createElement('div');
+            formContainer.className = 'variant-form-container mt-2';
+            formContainer.dataset.variantIndex = index;
+            wrapper.appendChild(formContainer);
+
+
+            wrapper.appendChild(deleteDiv);
+            variantSection.appendChild(wrapper);
+        });
+    };
+     
+    window.showVariantInput = function () {
+        document.getElementById('new-variant-type-wrapper').style.display = 'block';
+    }
+
+    window.hideVariantInput = function () {
+         const input = document.getElementById('new-variant-type-name'); 
+         input.value = '';
+        document.getElementById('new-variant-type-wrapper').style.display = 'none';
+    }
+
+    window.addVariantType = function () {
+        const input = document.getElementById('new-variant-type-name');
+        const typeName = input.value.trim();
+        if (!typeName) {
+            alert("Please enter a variant type name");
+            return;
+        }
+        const newType = {
+            name: typeName,
+            values: []
+        };
+        window.productImageList.push(newType);
+        input.value = '';
+        document.getElementById('new-variant-type-wrapper').style.display = 'none';
+        updateVariantSection();
+    }
+
+    function showVariantForm(index, container,name=null) {
+        const form = document.createElement('div');
+        form.innerHTML = `
+            <div class="d-flex align-items-start gap-3 mb-2 justify-content-between">
+                <div class="text-center">
+                    <div id="variant-image-preview-${index}" class="mb-2" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+                </div>
+            </div>
+            <div class="d-flex align-items-start gap-3 mb-2 justify-content-between">
+                <div class="text-center">               
+                    <label for="variant-image-${index}" class="btn btn-sm btn-primary mb-0">Choose Images</label>
+                    <input type="file" id="variant-image-${index}" accept="image/*" class="d-none" multiple>
+                </div>
+                 <div class="text-center">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="loadGalleryFromDB('${name}')">Load from Gallery</button>
+            </div>
+            </div>
+            <button class='mt-2 btn btn-sm btn-primary w-100' onclick="addVariant(${index})">Add</button>
+            <button class='mt-2 btn btn-sm btn-secondary w-100' onclick="closeVariant()">Cancel</button>
+            <hr>`;
+
+        container.innerHTML = '';
+        container.appendChild(form);
+
+        const imageInput = document.getElementById(`variant-image-${index}`);
+        const imagePreviewContainer = document.getElementById(`variant-image-preview-${index}`);
+
+        imageInput.addEventListener('change', function () {
+            imagePreviewContainer.innerHTML = '';
+            const files = Array.from(this.files);
+            files.forEach(file => {
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                img.style.maxWidth = '50px';
+                img.style.display = 'block';
+                imagePreviewContainer.appendChild(img);
+            });
+        });
+    }
+    window.closeVariant = function(index){
+        document.querySelectorAll('.variant-form-container').forEach(c => c.innerHTML = '');
+    }
+
+    window.addVariant = function (index) {
+        const files = Array.from(document.getElementById(`variant-image-${index}`).files);
+
+        if (!files.length) {
+            return alert("Please select at least one image file.");
+        }
+
+        files.forEach((file, i) => {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const pictureUrl = e.target.result;
+                const fileName = file.name.split('.').slice(0, -1).join('') || `design-${index + 1}-${i + 1}`;
+
+                if (!window.productImageList[index]) {
+                    window.productImageList[index] = { values: [] };
+                }
+                if (!window.productImageList[index].values) {
+                    window.productImageList[index].values = [];
+                }
+
+                window.productImageList[index].values.push({
+                    value: fileName,
+                    pictureUrl
+                });
+
+                updateVariantSection(); // Assuming this updates the UI with new variants
+            };
+            reader.readAsDataURL(file);
+        });
+
+        closeVariant(); // Optional: Close form after adding
+    };
+
+    window.loadGalleryFromDB = function (variant = null) {
+        fetch("/admin/gallery_images")
+            .then(response => {
+                if (!response.ok) throw new Error("Network response was not ok");
+                return response.json();
+            })
+            .then(images => {
+                const gallerySection = document.getElementById("gallery-section");
+                const galleryDbSection = document.getElementById("gallery-db-list");
+                galleryDbSection.innerHTML = "";
+                gallerySection.style.display = "block";
+
+                // Reset selection
+                window.selectedGalleryImageUrls = [];
+
+                // Ensure productImageList exists
+                if (!window.productImageList) {
+                    window.productImageList = [];
+                }
+
+                // Get or create correct variant
+                let targetVariant;
+                if (variant) {
+                    targetVariant = window.productImageList.find(v => v.name === variant);
+                    if (!targetVariant) {
+                        targetVariant = { name: variant, values: [] };
+                        window.productImageList.push(targetVariant);
+                    }
+                } else {
+                    targetVariant = window.productImageList.find(v => v.name === "Design");
+                    if (!targetVariant) {
+                        targetVariant = { name: "Design", values: [] };
+                        window.productImageList.push(targetVariant);
+                    }
+                }
+
+                // Render gallery images
+                images.forEach((image, index) => {
+                    const img = document.createElement("img");
+                    img.src = image.url;
+                    img.alt = "Gallery Image";
+                    img.className = "gallery-img";
+                    img.dataset.url = image.url;
+                    img.style.width = "100px";
+                    img.style.height = "100px";
+                    img.style.margin = "5px";
+                    img.style.cursor = "pointer";
+
+                    img.onclick = () => {
+                        const url = image.url;
+                        const name = image.name?.split('.').slice(0, -1).join('') || `design-${index + 1}`;
+                        const selectedIndex = window.selectedGalleryImageUrls.indexOf(url);
+
+                        if (selectedIndex > -1) {
+                            // Deselect
+                            window.selectedGalleryImageUrls.splice(selectedIndex, 1);
+                            img.classList.remove("selected");
+
+                            targetVariant.values = targetVariant.values.filter(v => v.pictureUrl !== url);
+                        } else {
+                            // Select
+                            window.selectedGalleryImageUrls.push(url);
+                            img.classList.add("selected");
+
+                            targetVariant.values.push({
+                                value: name,
+                                pictureUrl: url,
+                            });
+                        }
+
+                        // updateVariantSection();
+                    };
+
+                    galleryDbSection.appendChild(img);
+                });
+            })
+            .catch(error => {
+                console.error("Failed to load gallery images:", error);
+                alert("Failed to load gallery images.");
+            });
+    };
+
+    window.addFromGallery = function () {
+        document.getElementById('gallery-section').style.display = 'none';
+        const galleryDbSection = document.getElementById("gallery-db-list");
+        updateVariantSection()
+        galleryDbSection.innerHTML = "";
+    }
+
+    window.closeFromGallery = function () {
+        document.getElementById('gallery-section').style.display = 'none';
+        const galleryDbSection = document.getElementById("gallery-db-list");
+        // updateVariantSection()
+        galleryDbSection.innerHTML = "";
+    }
+
+    window.addTemplate = function () {
+        window.baseImageObj = null
+        const gallerySection = document.getElementById("gallery-section");
+
+        const galleryDbSection = document.getElementById("gallery-db-list");
+             
+        galleryDbSection.innerHTML = "";
+        gallerySection.style.display = "none";
+        renderVariantGallery();
+        closeTemplatePopup()
+    }
+
+    window.renderVariantGallery = function () {
+        const gallery = document.getElementById('variant-gallery-display');
+        gallery.innerHTML = '';
+
+        // Step 1: Update variants from productImageList if available
+        if (window.productImageList) {
+            const validVariants = window.productImageList.filter(v => v.values && v.values.length > 0);
+            window.currentProduct.variants = validVariants;
+        }
+
+        // Step 2: Use first available variant with at least one value
+        const firstAvailableVariant = window.currentProduct.variants.find(v => v.values && v.values.length > 0);
+
+        // Step 3: Set the base image if available, else reset canvas and product
+        if (firstAvailableVariant && firstAvailableVariant.values[0]) {
+            setBaseImageFromURL(firstAvailableVariant.values[0].pictureUrl);
+        } else {
+            window.canvas.clear();
+            window.currentProduct = {
+                type: '',
+                variants: [],
+                controls: [],
+                selectedVariantImageUrl: ''
+            };
+        }
+
+        // Step 4: Render gallery for each variant
+        window.currentProduct.variants.forEach((variant) => {
+            if (variant.values.length < 2) return;
+
+            const groupParent = document.createElement('div');
+            groupParent.className = 'variant-parent';
+
+            const title = document.createElement('div');
+            title.className = 'variant-title';
+            title.innerText = variant.name;
+
+            const group = document.createElement('div');
+            group.className = 'variant-group';
+
+            const itemsContainer = document.createElement('div');
+            itemsContainer.className = 'variant-items';
+
+            variant.values.forEach((value) => {
+                const item = document.createElement('div');
+                item.className = 'variant-item';
+                item.innerHTML = `<img src="${value.pictureUrl}" alt="${value.value}" />`;
+                item.onclick = () => switchVariant(value);
+                itemsContainer.appendChild(item);
+            });
+
+            group.appendChild(itemsContainer);
+            groupParent.appendChild(title);
+            groupParent.appendChild(group);
+            gallery.appendChild(groupParent);
+        });
+    };
+
+    window.switchVariant = function (value) {
+        fabric.Image.fromURL(value.pictureUrl, function (img) {
+            window.baseImageObj = img;
+            img.selectable = false;
+            img.scaleToWidth(img.width);
+            img.scaleToHeight(img.height);
+            img.left = (window.canvas.width - img.width) / 2;
+            img.top = (window.canvas.height - img.height) / 2;
+
+            window.currentProduct.selectedVariantImageUrl = value.pictureUrl;
+            window.canvas.setBackgroundImage(img, window.canvas.renderAll.bind(canvas));
+        });
+    }
+
+</script>
+
+<%# Varaint Image OnChange %>
+<script>
+    window.setBaseImageFromURL = function (imageUrl) {
+        fabric.Image.fromURL(imageUrl, function (img) {
+            img.selectable = false;
+            img.scaleToWidth(img.width);
+            img.scaleToHeight(img.height);
+            img.left = (window.canvas.width - img.width) / 2;
+            img.top = (window.canvas.height - img.height) / 2;
+            window.currentProduct.selectedVariantImageUrl = imageUrl
+            if (!window.baseImageObj) {
+                window.baseImageObj = img;
+                window.canvas.setBackgroundImage(img, window.canvas.renderAll.bind(canvas));
+            }
+        });
+    }
+    document.getElementById('base-template-upload').addEventListener('change', function (e) {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        let designVariant;
+
+        if (window.productImageList.length === 0) {
+            // No types exist — create "Design" variant and add it as the first type
+            designVariant = { name: 'Design', values: [] };
+            window.productImageList.push(designVariant);
+        } else {
+            // Types already exist — add images to the very first variant, no matter its name
+            designVariant = window.productImageList[0];
+            if (!designVariant.values) {
+                designVariant.values = [];
+            }
+        }
+
+        let loadedCount = 0;
+
+        files.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function (f) {
+                fabric.Image.fromURL(f.target.result, function (img) {
+                    loadedCount++;
+                    designVariant.values.push({
+                        value: file.name.split('.').slice(0, -1).join('') || `design-${index + 1}`,
+                        pictureUrl: f.target.result,
+                    });
+
+                    if (loadedCount === files.length) {
+                        updateVariantSection();
+                        document.getElementById('base-template-upload').value = '';
+                    }
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+    
+    document.getElementById('align-left').addEventListener('click', function () {
+        document.getElementById('align-center').classList.remove('active');
+        document.getElementById('align-right').classList.remove('active');
+        this.classList.toggle('active');
+    });
+
+    document.getElementById('align-center').addEventListener('click', function () {
+        document.getElementById('align-left').classList.remove('active');
+        document.getElementById('align-right').classList.remove('active');
+        this.classList.toggle('active');
+    });
+
+    document.getElementById('align-right').addEventListener('click', function () {
+        document.getElementById('align-left').classList.remove('active');
+        document.getElementById('align-center').classList.remove('active');
+        this.classList.toggle('active');
+    });
+
+    document.getElementById('bold').addEventListener('click', function () {
+        this.classList.toggle('active');
+    });
+
+    document.getElementById('italic').addEventListener('click', function () {
+        this.classList.toggle('active');
+    });
+
+    document.getElementById('underline').addEventListener('click', function () {
+        this.classList.toggle('active');
+    });
+
+</script>
+
+<%# Control PopUp %>
+<script>
+
+
+    window.handleControlTypeChange = function(selectElement) {
+        const selectedValue = selectElement.value;
+        const textContainer = document.getElementById("text-container");
+        const imgContainer = document.getElementById("img-container");
+        const minMax = document.getElementById('min-max');
+        const FieldLabel = document.getElementById('field-value');
+        const heading = document.getElementById('control-heading');
+        const inputWrapper = document.getElementById('text-input').parentElement;
+        const oldInput = document.getElementById('text-input');
+
+        // Reset views
+        textContainer.style.display = "none";
+        imgContainer.style.display = "none";
+
+        if (selectedValue === "text" || selectedValue === "textarea" || selectedValue === "date" ||selectedValue==='number') {
+            textContainer.style.display = "block";
+
+            // Create new input element depending on type
+            let newInput;
+            if (selectedValue === "textarea") {
+                newInput = document.createElement('textarea');
+                newInput.rows = 4;
+                FieldLabel.innerText = "Notes Value:";
+                heading.innerText = 'Add Notes';
+            } else {
+                newInput = document.createElement('input');
+                newInput.type = selectedValue;
+                FieldLabel.innerText = selectedValue === "text" ? "Text Value:" :selectedValue === "number"? 'Number Value': "Date Value:";
+                heading.innerText = selectedValue === "text" ? "Add Text" : selectedValue === "number"?"Add Number":"Add Date";
+            }
+
+            // Set common attributes
+            newInput.className = "form-control mb-3";
+            newInput.id = "text-input";
+            newInput.placeholder = "Enter Value";
+
+            // Replace old input with new one
+            inputWrapper.replaceChild(newInput, oldInput);
+
+            // Show/hide min-max fields
+            minMax.style.display = (selectedValue === "text" || selectedValue === "textarea") ? "block" : "none";
+
+            // Clear image area
+            imgContainer.style.display = "none";
+            window.uploadedImages = [];
+            document.getElementById('image-preview-list').innerHTML = '';
+        } else {
+            // Clear text-related fields
+            const textInput = document.getElementById('text-input');
+            if (textInput) textInput.value = "";
+            document.getElementById('font-size').value = '20';
+            document.getElementById('font-color').value = "#000000";
+            document.getElementById("min-char").value = "1";
+            document.getElementById("max-char").value = "50";
+            document.getElementById("char-error").style.display = "none";
+
+            // Show image section
+            textContainer.style.display = "none";
+            imgContainer.style.display = "block";
+        }
+    }
+    window.openControls = function () {
+        document.getElementById('popup-overlay').style.display = 'block';
+        document.getElementById('template-control-popup').classList.add('show');
+    }
+
+    window.closeControls = function () {
+        const controlTypeSelect = document.getElementById("control-type");
+        controlTypeSelect.value = "";
+        const textContainer = document.getElementById("text-container");
+        const imgContainer = document.getElementById("img-container"); 
+        textContainer.style.display = "none";
+        imgContainer.style.display = "none";
+        document.getElementById('popup-overlay').style.display = 'none';
+        document.getElementById('template-control-popup').classList.remove('show');
+    }
+
+    window.addControl = function () {
+        const controlTypeSelect = document.getElementById("control-type");
+        if (controlTypeSelect.value === "") {
+            alert("Select Control to Add")
+            return
+        }
+        if (controlTypeSelect.value === "text" || controlTypeSelect.value === "textarea"|| controlTypeSelect.value === "date"|| controlTypeSelect.value === "number") {
+             addText(controlTypeSelect.value)
+        } else if (controlTypeSelect.value === "image-swatcher"||controlTypeSelect.value === "image-drop-down") {
+             saveImagesToCanvas(controlTypeSelect.value)
+        }
+        controlTypeSelect.value = "";
+        closeControls()
+    }
+
+
+
+
+    window.addText = function (inputType = 'text') {
+        const textInput = document.getElementById('text-input').value.trim();
+        const fontSize = document.getElementById('font-size').value;
+        const fontColor = document.getElementById('font-color').value;
+        const fontFamily = document.getElementById('font-family').value;
+        const min = parseInt(document.getElementById("min-char").value);
+        const max = parseInt(document.getElementById("max-char").value);
+        const error = document.getElementById("char-error");
+        let fontStyle = '';
+        if (min > max) {
+            error.textContent = `Min characters cannot be greater than max characters.`;
+            error.style.display = "block";
+            return;
+        }
+        if (textInput.length < min || textInput.length > max) {
+            error.textContent = `Text must be between ${min} and ${max} characters.`;
+            error.style.display = "block";
+            return;
+        }
+        error.style.display = "none";
+        if (document.getElementById('bold').classList.contains('active')) {
+            fontStyle += 'bold ';
+        }
+        if (document.getElementById('italic').classList.contains('active')) {
+            fontStyle += 'italic ';
+        }
+        if (document.getElementById('underline').classList.contains('active')) {
+            fontStyle += 'underline';
+        }
+
+        const underline = document.getElementById('underline').classList.contains('active');
+
+        let textAlign = 'left';
+        if (document.getElementById('align-center')?.classList.contains('active')) {
+            textAlign = 'center';
+        } else if (document.getElementById('align-right')?.classList.contains('active')) {
+            textAlign = 'right';
+        }
+
+        if (textInput.trim() === '') {
+            alert("Please enter some text.");
+            return;
+        }       
+
+        const baseImage = window.baseImageObj;
+        if (!baseImage) {
+            alert("No base image found!");
+            return;
+        }
+
+        const xPos = baseImage.left + (baseImage.width / 2) - 100;
+        const yPos = baseImage.top + (baseImage.height / 2) - 50;
+
+        const text = new fabric.Textbox(textInput, {
+            left: xPos,
+            top: yPos,
+            width: 100,
+            fontSize: parseInt(fontSize),
+            fill: fontColor,
+            fontFamily: fontFamily,
+            textAlign: textAlign,
+            min: min,
+            max: max,
+            controlType:'text',
+            inputType:inputType,
+            fontWeight: fontStyle.includes('bold') ? 'bold' : 'normal',
+            fontStyle: fontStyle.includes('italic') ? 'italic' : 'normal',
+            underline: fontStyle.includes('underline'),
+        });
+
+        text.id = 'text-' + Date.now();
+        window.canvas.add(text);
+        window.currentProduct.controls.push(text);
+        renderUi()
+        document.getElementById('text-input').value = '';
+    }
+
+    window.addTextControls = function (text) {
+        const container = document.getElementById('controls-container');
+        const controlDiv = document.createElement('div');
+        controlDiv.className = 'text-controls';
+        controlDiv.id = 'text-control-' + text.id;
+
+        const controlRow = document.createElement('div');
+        controlRow.className = 'w-100 flex-display';
+        controlRow.style.flexWrap = 'wrap';
+
+        const createLabeledInput = (label, element, className = null) => {
+            const wrapper = document.createElement('label');
+            wrapper.className = `${className || ''} vertical-margin`;
+            wrapper.style.display = 'flex';
+            wrapper.style.flexDirection = 'column';
+            wrapper.style.marginRight = '20px';
+
+            const span = document.createElement('span');
+            span.innerText = label;
+            wrapper.appendChild(span);
+            wrapper.appendChild(element);
+            return wrapper;
+        };
+
+        // === Text/textarea input ===
+        let textInput;
+        if (text.inputType === 'textarea') {
+            textInput = document.createElement('textarea');
+            textInput.rows = 4;
+        } else if (text.inputType === 'date') {
+            textInput = document.createElement('input');
+            textInput.type = 'date';
+            textInput.value = text.text || new Date().toISOString().split('T')[0];
+        } else if (text.inputType === 'number') {
+            textInput = document.createElement('input');
+            textInput.type = 'number';
+            textInput.value = text.text;
+        } else {
+            textInput = document.createElement('input');
+            textInput.type = 'text';
+        }
+
+        textInput.value = text.text;
+        textInput.className = 'form-control mb-3';
+
+        const minCharInput = document.createElement('input');
+        minCharInput.type = 'number';
+        minCharInput.min = 1;
+        minCharInput.value = text.min || 1;
+        minCharInput.className = 'form-control mb-3';
+        minCharInput.style.width = '60px';
+
+        const maxCharInput = document.createElement('input');
+        maxCharInput.type = 'number';
+        maxCharInput.min = minCharInput.value;
+        maxCharInput.value = text.max || 100;
+        maxCharInput.className = 'form-control mb-3';
+        maxCharInput.style.width = '60px';
+
+        const charError = document.createElement('small');
+        charError.style.color = 'red';
+        charError.style.display = 'none';
+
+        textInput.oninput = () => {
+            if (text.inputType === 'date') {
+                charError.style.display = 'none';
+                text.set({ text: textInput.value });
+                window.canvas.renderAll();
+            } else {
+                const min = parseInt(minCharInput.value);
+                const max = parseInt(maxCharInput.value);
+                const valueLength = textInput.value.length;
+
+                if (valueLength < min || valueLength > max) {
+                    charError.innerText = `Text must be between ${min} and ${max} characters.`;
+                    charError.style.display = 'block';
+                } else {
+                    charError.style.display = 'none';
+                    text.set({ text: textInput.value });
+                    window.canvas.renderAll();
+                }
+            }
+        };
+
+        minCharInput.onchange = () => {
+            const min = parseInt(minCharInput.value);
+            maxCharInput.min = min;
+            text.min = min;
+            textInput.dispatchEvent(new Event('input'));
+        };
+
+        maxCharInput.onchange = () => {
+            text.max = parseInt(maxCharInput.value);
+            textInput.dispatchEvent(new Event('input'));
+        };
+
+        // === Font Size ===
+        const fontSizeInput = document.createElement('input');
+        fontSizeInput.type = 'number';
+        fontSizeInput.value = text.fontSize || 20;
+        fontSizeInput.className = 'form-control mb-3';
+        fontSizeInput.style.width = '60px';
+        fontSizeInput.onchange = () => {
+            text.set({ fontSize: parseInt(fontSizeInput.value) });
+            window.canvas.renderAll();
+        };
+
+        // === Font Color ===
+        const fontColorInput = document.createElement('input');
+        fontColorInput.type = 'color';
+        fontColorInput.value = text.fill || '#000000';
+        fontColorInput.className = 'form-control mb-3';
+        fontColorInput.style.width = '60px';
+        fontColorInput.onchange = () => {
+            text.set({ fill: fontColorInput.value });
+            window.canvas.renderAll();
+        };
+
+        // === Font Family ===
+        const fontFamilyInput = document.createElement('select');
+        fontFamilyInput.className = 'form-control mb-3';
+        fontFamilyInput.innerHTML = `
+        <% if @fonts.present? && @fonts.any? %>
+            <% @fonts.each do |font| %>
+                <option value="<%= font.name %>"><%= font.name %></option>
+            <% end %>
+        <% else %>
+            <option value="Arial">Arial</option>
+            <option value="Verdana">Verdana</option>
+            <option value="Courier New">Courier New</option>
+        <% end %>`;
+        fontFamilyInput.value = text.fontFamily;
+        fontFamilyInput.onchange = () => {
+            text.set({ fontFamily: fontFamilyInput.value });
+            window.canvas.renderAll();
+        };
+        const fontFamilyDiv = document.createElement('div');
+        fontFamilyDiv.className = 'w-100';
+        fontFamilyDiv.appendChild(createLabeledInput('Font Family', fontFamilyInput));
+
+        // === Font Styles (Bold, Italic, Underline) ===
+        const boldButton = document.createElement('button');
+        boldButton.innerText = 'B';
+        boldButton.className = 'style-btn';
+        if (text.fontWeight === 'bold') boldButton.classList.add('active');
+        boldButton.onclick = () => {
+            const bold = text.fontWeight === 'bold';
+            text.set({ fontWeight: bold ? 'normal' : 'bold' });
+            boldButton.classList.toggle('active', !bold);
+            window.canvas.renderAll();
+        };
+
+        const italicButton = document.createElement('button');
+        italicButton.innerText = 'I';
+        italicButton.className = 'style-btn';
+        if (text.fontStyle === 'italic') italicButton.classList.add('active');
+        italicButton.onclick = () => {
+            const italic = text.fontStyle === 'italic';
+            text.set({ fontStyle: italic ? 'normal' : 'italic' });
+            italicButton.classList.toggle('active', !italic);
+            window.canvas.renderAll();
+        };
+
+        const underlineButton = document.createElement('button');
+        underlineButton.innerText = 'U';
+        underlineButton.className = 'style-btn';
+        if (text.underline) underlineButton.classList.add('active');
+        underlineButton.onclick = () => {
+            const underline = text.underline;
+            text.set({ underline: !underline });
+            underlineButton.classList.toggle('active', !underline);
+            window.canvas.renderAll();
+        };
+
+        function createAlignButton(label, align) {
+            const btn = document.createElement('button');
+            btn.innerText = label;
+            btn.className = 'style-btn';
+            btn.onclick = () => {
+                text.set({ textAlign: align });
+                updateAlignButtons(align);
+                window.canvas.renderAll();
+            };
+            return btn;
+        }
+
+        function updateAlignButtons(active) {
+            [alignLeftBtn, alignCenterBtn, alignRightBtn].forEach((btn, i) => {
+                btn.classList.toggle('active', ['left', 'center', 'right'][i] === active);
+            });
+        }
+
+        const alignLeftBtn = createAlignButton('Left', 'left');
+        const alignCenterBtn = createAlignButton('Center', 'center');
+        const alignRightBtn = createAlignButton('Right', 'right');
+
+        updateAlignButtons(text.textAlign || 'left');
+
+        controlRow.appendChild(createLabeledInput(
+            text.inputType === 'textarea' ? 'Notes' :
+            text.inputType === 'date' ? 'Date' :
+            text.inputType === 'number' ? 'Number' : 'Text',
+            textInput, 'w-100'
+        ));
+
+        if (text.inputType !== 'date' && text.inputType !== 'number') {
+            controlRow.appendChild(createLabeledInput('Min Chars', minCharInput));
+            controlRow.appendChild(createLabeledInput('Max Chars', maxCharInput));
+            controlRow.appendChild(charError);
+        }
+
+        controlRow.appendChild(createLabeledInput('Font Size', fontSizeInput));
+        controlRow.appendChild(createLabeledInput('Font Color', fontColorInput));
+        controlRow.appendChild(fontFamilyDiv);
+
+        const styleLabel = document.createElement('label');
+        styleLabel.className = 'vertical-margin';
+        styleLabel.innerText = 'Styles';
+
+        const styleRow = document.createElement('div');
+        styleRow.className = 'd-flex';
+        styleRow.style.gap = '4px';
+        styleRow.appendChild(createLabeledInput('', boldButton));
+        styleRow.appendChild(createLabeledInput('', italicButton));
+        styleRow.appendChild(createLabeledInput('', underlineButton));
+        styleRow.appendChild(createLabeledInput('', alignLeftBtn));
+        styleRow.appendChild(createLabeledInput('', alignCenterBtn));
+        styleRow.appendChild(createLabeledInput('', alignRightBtn));
+        styleRow.appendChild(styleLabel);
+        controlRow.appendChild(styleRow);
+
+        const createNumberInput = (label, value, onChange, fieldKey) => {
+            const wrapper = document.createElement('label');
+            wrapper.className = 'vertical-margin';
+
+            const span = document.createElement('span');
+            span.textContent = label;
+
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.value = value;
+            input.className = 'form-control mb-3';
+            input.style.width = '60px';
+            input.style.fontSize = '12px';
+            input.setAttribute('data-object-id', text.id);
+            input.setAttribute('data-field', fieldKey);
+            input.onchange = (e) => {
+                onChange(parseFloat(e.target.value));
+                text.setCoords();
+                window.canvas.renderAll();
+            };
+
+            wrapper.appendChild(span);
+            wrapper.appendChild(input);
+            return wrapper;
+        };
+
+        const scaleDiv = document.createElement('div');
+        scaleDiv.className = 'd-flex';
+        scaleDiv.style.gap = '5px';
+        scaleDiv.appendChild(createNumberInput('X', text.left, val => text.set('left', val), 'left'));
+        scaleDiv.appendChild(createNumberInput('Y', text.top, val => text.set('top', val), 'top'));
+        scaleDiv.appendChild(createNumberInput('Scale X', text.scaleX, val => text.set('scaleX', val), 'scaleX'));
+        scaleDiv.appendChild(createNumberInput('Scale Y', text.scaleY, val => text.set('scaleY', val), 'scaleY'));
+        scaleDiv.appendChild(createNumberInput('Rotate', text.angle || 0, val => text.set('angle', val), 'angle'));
+
+        const removeButton = document.createElement('button');
+        removeButton.innerText = 'Remove Text';
+        removeButton.className = 'btn btn-sm btn-outline-danger w-100 mt-2 d-block';
+        removeButton.onclick = () => {
+            window.canvas.remove(text);
+            window.textObjects = window.textObjects.filter(t => t !== text);
+            window.currentProduct.controls = window.currentProduct.controls.filter(t => t !== text);
+            container.removeChild(controlDiv);
+            renderUi()
+        };
+
+        controlRow.appendChild(scaleDiv);
+        controlRow.appendChild(removeButton);
+        controlDiv.appendChild(controlRow);
+        container.appendChild(controlDiv);
+    };
+
+
+
+    window.renderUi = function () {
+        const container = document.getElementById('controls-container');
+        container.innerHTML = '';
+        (window.currentProduct.controls || []).forEach((control, index) => {
+            if (control.controlType === 'image') {
+                addImageControls(control,index)
+            } else if (control.type === 'textbox' || control.controlType === 'text') {
+               
+                addTextControls(control); 
+            } else {
+                console.warn("Unknown control type:", control);
+            }
+        });
+    }
+
+    window.addImageControls = function (image, imageIndex) {
+        const container = document.getElementById('controls-container');
+        const controlDiv = document.createElement('div');
+        controlDiv.className = 'image-controls';
+        controlDiv.id = 'image-control-' + image.mainImage.id;
+       const imageSection = document.createElement('div');
+        imageSection.style.marginBottom = '20px';
+       const optionsContainer = document.createElement('div');
+        optionsContainer.className = 'options-container';
+       if (image.inputType === 'image-drop-down') {
+            // Custom dropdown replacing the native select to support images
+            const dropdownWrapper = document.createElement('div');
+            dropdownWrapper.className = 'custom-dropdown mb-2';
+            dropdownWrapper.style.position = 'relative';
+            dropdownWrapper.style.width = '100%';
+           const selectedDiv = document.createElement('div');
+            selectedDiv.className = 'selected-option';
+            selectedDiv.style.border = '1px solid #ccc';
+            selectedDiv.style.padding = '5px';
+            selectedDiv.style.cursor = 'pointer';
+            selectedDiv.style.display = 'flex';
+            selectedDiv.style.alignItems = 'center';
+           const selectedImg = document.createElement('img');
+            selectedImg.style.width = '50px';
+            selectedImg.style.height = '50px';
+            selectedImg.style.objectFit = 'contain';
+            selectedImg.style.marginRight = '10px';
+            selectedImg.style.border = '2px solid';
+            selectedImg.style.borderRadius = '5px';
+           const selectedText = document.createElement('span');
+           // Find the index of the currently selected image option
+            const selectedIndex = image.options.findIndex(opt => opt.id === image.mainImage.id);
+            // fallback to 0 if not found
+            const displayIndex = selectedIndex >= 0 ? selectedIndex : 0;
+            const selectedOption = image.options[displayIndex];
+           selectedImg.src = selectedOption.src || selectedOption.getSrc();
+            selectedText.textContent = `Option ${displayIndex + 1}`;
+           selectedDiv.appendChild(selectedImg);
+            // selectedDiv.appendChild(selectedText);
+           const dropdownList = document.createElement('div');
+            dropdownList.className = 'dropdown-options';
+            dropdownList.style.position = 'absolute';
+            dropdownList.style.top = '100%';
+            dropdownList.style.left = '0';
+            dropdownList.style.width = '100%';
+            dropdownList.style.border = '1px solid #ccc';
+            dropdownList.style.backgroundColor = '#fff';
+            dropdownList.style.zIndex = '10';
+            dropdownList.style.display = 'none';
+            dropdownList.style.maxHeight = '200px';
+            dropdownList.style.overflowY = 'auto';
+           image.options.forEach((option, index) => {
+                const optionItem = document.createElement('div');
+                optionItem.style.display = 'flex';
+                optionItem.style.alignItems = 'center';
+                optionItem.style.padding = '5px';
+                optionItem.style.cursor = 'pointer';
+                optionItem.onmouseenter = () => optionItem.style.backgroundColor = '#eee';
+                optionItem.onmouseleave = () => optionItem.style.backgroundColor = '#fff';
+               const optionImg = document.createElement('img');
+                optionImg.src = option.src || option.getSrc();
+                optionImg.style.width = '50px';
+                optionImg.style.height = '50px';
+                optionImg.style.objectFit = 'contain';
+                optionImg.style.marginRight = '10px';
+               const optionText = document.createElement('span');
+                optionText.textContent = `Option ${index + 1}`;
+               optionItem.appendChild(optionImg);
+                // optionItem.appendChild(optionText);
+               optionItem.onclick = () => {
+                    selectedImg.src = optionImg.src;
+                    selectedText.textContent = `Option ${index + 1}`;
+                    dropdownList.style.display = 'none';
+                   const targetObj = window.canvas.getObjects().find(obj => obj.id === image.mainImage.id);
+                    if (targetObj) {
+                        const { left, top, scaleX, scaleY, angle, flipX, flipY } = targetObj;
+                        fabric.Image.fromURL(option.src || option.getSrc(), function (newImg) {
+                            newImg.id = option.id;
+                            newImg.set({ left, top, scaleX, scaleY, angle, flipX, flipY });
+                            const idx = window.canvas.getObjects().indexOf(targetObj);
+                            window.canvas.remove(targetObj);
+                            window.canvas.insertAt(newImg, idx);
+                            image.mainImage = newImg;
+                            window.currentImageObj = newImg;
+                            window.canvas.renderAll();
+                            renderUi();
+                        });
+                    }
+                };
+               dropdownList.appendChild(optionItem);
+            });
+           selectedDiv.onclick = () => {
+                dropdownList.style.display = dropdownList.style.display === 'none' ? 'block' : 'none';
+            };
+           dropdownWrapper.appendChild(selectedDiv);
+            dropdownWrapper.appendChild(dropdownList);
+            optionsContainer.appendChild(dropdownWrapper);
+        } else {
+            image.options.forEach((option, index) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'option-image-container';
+                optionDiv.style.display = 'inline-block';
+                optionDiv.style.marginRight = '10px';
+               const optionImage = document.createElement('img');
+                optionImage.src = option?.src || option?.getSrc() || 'placeholder.jpg';
+                optionImage.alt = 'Option Image';
+                optionImage.style.width = '80px';
+                optionImage.style.cursor = 'pointer';
+               optionImage.onclick = () => {
+                    const targetObj = window.canvas.getObjects().find(obj => obj.id === image.mainImage.id);
+                    if (targetObj) {
+                        const { left, top, scaleX, scaleY, angle, flipX, flipY } = targetObj;
+                        fabric.Image.fromURL(option?.src || option?.getSrc(), function (newImg) {
+                            newImg.id = option.id;
+                            newImg.set({ left, top, scaleX, scaleY, angle, flipX, flipY });
+                            const idx = window.canvas.getObjects().indexOf(targetObj);
+                            window.canvas.remove(targetObj);
+                            window.canvas.insertAt(newImg, idx);
+                            image.mainImage = newImg;
+                            window.currentImageObj = newImg;
+                            window.canvas.renderAll();
+                            renderUi();
+                        });
+                    }
+                };
+               const deleteOptionBtn = document.createElement('button');
+                deleteOptionBtn.textContent = '❌';
+                deleteOptionBtn.className = 'btn btn-sm delete-icon d-block';
+                deleteOptionBtn.style.marginTop = '5px';
+                deleteOptionBtn.onclick = () => {
+                    const isMain = (option.id === image.mainImage?.id);
+                    let transform = null;
+                   if (isMain) {
+                        const canvasImage = window.canvas.getObjects().find(obj => obj.id === option.id);
+                        if (canvasImage) {
+                            transform = {
+                                left: canvasImage.left,
+                                top: canvasImage.top,
+                                scaleX: canvasImage.scaleX,
+                                scaleY: canvasImage.scaleY,
+                                angle: canvasImage.angle,
+                                flipX: canvasImage.flipX,
+                                flipY: canvasImage.flipY
+                            };
+                            window.canvas.remove(canvasImage);
+                        }
+                    }
+                   image.options.splice(index, 1);
+                   if (image.options.length === 0) {
+                        const obj = window.canvas.getObjects().find(obj => obj.id === image.mainImage?.id);
+                        if (obj) {
+                            window.canvas.remove(obj);
+                        }
+                        window.currentProduct.controls.splice(imageIndex, 1);
+                        renderUi();
+                        return;
+                    }
+                   if (isMain) {
+                        const replacement = image.options[0];
+                        fabric.Image.fromURL(replacement?.src || replacement?.getSrc(), function (newImg) {
+                            newImg.id = replacement.id;
+                            if (transform) {
+                                newImg.set({
+                                    ...transform,
+                                    selectable: true,
+                                    hasControls: true,
+                                    hasBorders: true
+                                });
+                            }
+                            window.canvas.add(newImg);
+                            image.mainImage = newImg;
+                            window.currentImageObj = newImg;
+                            window.canvas.renderAll();
+                            renderUi();
+                        });
+                    } else {
+                        renderUi();
+                    }
+                };
+               optionDiv.appendChild(optionImage);
+                optionDiv.appendChild(deleteOptionBtn);
+                optionsContainer.appendChild(optionDiv);
+            });
+        }
+       imageSection.appendChild(optionsContainer);
+       const controlPanel = document.createElement('div');
+            controlPanel.className = 'scale-position-parent';
+            const mainImage = image.mainImage;
+            if (mainImage) {
+                controlPanel.appendChild(createLabeledInput('X', mainImage.left, val => mainImage.set('left', val), 'left', mainImage.id));
+                controlPanel.appendChild(createLabeledInput('Y', mainImage.top, val => mainImage.set('top', val), 'top', mainImage.id));
+                controlPanel.appendChild(createLabeledInput('ScaleX', mainImage.scaleX, val => mainImage.set('scaleX', val), 'scaleX', mainImage.id));
+                controlPanel.appendChild(createLabeledInput('ScaleY', mainImage.scaleY, val => mainImage.set('scaleY', val), 'scaleY', mainImage.id));
+                controlPanel.appendChild(createLabeledInput('Rotate', mainImage.angle, val => mainImage.set('angle', val), 'angle', mainImage.id));
+            }
+       imageSection.appendChild(controlPanel);
+       const buttonDiv = document.createElement("div");
+        buttonDiv.className = "btn-controls justify-content-between";
+       const addOptionButton = document.createElement('button');
+        addOptionButton.textContent = 'Add Option';
+        addOptionButton.className = 'mt-2 btn btn-sm btn-primary with-tip d-block';
+        addOptionButton.onclick = () => {
+            handleOptionImageUpload(image);
+        };
+       const loadGalleryButton = document.createElement('button');
+        loadGalleryButton.textContent = 'Load from Gallery';
+        loadGalleryButton.className = 'mt-2 btn btn-sm btn-secondary with-tip d-block';
+        loadGalleryButton.onclick = () => {
+            document.getElementById('popup-overlay').style.display = 'block';
+            document.getElementById('gallery-popup').classList.add('show');
+            loadGalleryPopUp(true, image);
+        };
+       const deleteSectionBtn = document.createElement('button');
+        deleteSectionBtn.textContent = '🗑️ Delete All Images';
+        deleteSectionBtn.className = 'btn btn-sm btn-outline-danger mt-2 d-block';
+        deleteSectionBtn.onclick = () => {
+            const allIds = [image.mainImage.id, ...image.options.map(opt => opt.id)];
+            window.canvas.getObjects().forEach(obj => {
+                if (allIds.includes(obj.id)) window.canvas.remove(obj);
+            });
+            window.currentProduct.controls.splice(imageIndex, 1);
+            renderUi();
+        };
+       buttonDiv.appendChild(addOptionButton);
+        buttonDiv.appendChild(loadGalleryButton);
+        buttonDiv.appendChild(deleteSectionBtn);
+       imageSection.appendChild(buttonDiv);
+        controlDiv.appendChild(imageSection);
+        container.appendChild(controlDiv);
+           function createLabeledInput(label, value, onChange, fieldKey, objectId) {
+                const wrapper = document.createElement('label');
+                wrapper.style.display = 'flex';
+                wrapper.style.flexDirection = 'column';
+                wrapper.className = 'vertical-margin';
+                const span = document.createElement('span');
+                span.textContent = label;
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.value = value;
+                input.className = 'scale-input form-control mb-3';
+                input.setAttribute('data-object-id', objectId);
+                input.setAttribute('data-field', fieldKey);
+                input.onchange = (e) => {
+                    onChange(parseFloat(e.target.value));
+                    if (window.canvas && window.canvas.renderAll) {
+                        window.canvas.renderAll();
+                    }
+                };
+                wrapper.appendChild(span);
+                wrapper.appendChild(input);
+                return wrapper;
+            }
+    };
+
+   window.syncInputsFromCanvas = function (obj) {
+        const fields = ['left', 'top', 'scaleX', 'scaleY', 'angle', 'text'];
+        fields.forEach((field) => {
+            const input = document.querySelector(`input[data-object-id="${obj.id}"][data-field="${field}"]`);
+            if (input) {
+                if (field === 'text') {
+                    const min = parseInt(input.getAttribute('data-min')) || 0;
+                    const max = parseInt(input.getAttribute('data-max')) || 9999;
+                    const errorElement = document.querySelector(`small[data-error-for="${obj.id}"]`);
+                    if (obj.text.length < min || obj.text.length > max) {
+                        input.classList.add('error');
+                        if (errorElement) {
+                            errorElement.style.display = 'inline';
+                            errorElement.textContent = `Text must be between ${min} and ${max} characters.`;
+                        }
+                    } else {
+                        input.classList.remove('error');
+                        if (errorElement) errorElement.style.display = 'none';
+                    }
+                    input.value = obj.text;
+                } else {
+                    input.value = parseFloat(obj[field]).toFixed(2);
+                }
+            }
+        });
+    };
+
+
+    window.canvas.on('object:moving', function (e) {
+        const obj = e.target;
+        if (!['image', 'textbox', 'text'].includes(obj.type)) return;
+
+        if (['image', 'textbox', 'text'].includes(obj.type) && window.baseImageObj) {
+            const base = window.baseImageObj;
+            const baseLeft = base.left;
+            const baseTop = base.top;
+            const baseRight = base.left + base.getScaledWidth();
+            const baseBottom = base.top + base.getScaledHeight();
+
+            const objWidth = obj.getScaledWidth();
+            const objHeight = obj.getScaledHeight();
+
+            if (obj.left < baseLeft) obj.left = baseLeft;
+            if (obj.top < baseTop) obj.top = baseTop;
+            if (obj.left + objWidth > baseRight) obj.left = baseRight - objWidth;
+            if (obj.top + objHeight > baseBottom) obj.top = baseBottom - objHeight;
+        }
+
+        syncInputsFromCanvas(obj);
+    });
+
+    window.canvas.on('object:scaling', (e) => {
+        if (!['image', 'textbox', 'text'].includes(e.target.type)) return;
+        syncInputsFromCanvas(e.target);
+    });
+
+    window.canvas.on('object:rotating', (e) => {
+        if (!['image', 'textbox', 'text'].includes(e.target.type)) return;
+        syncInputsFromCanvas(e.target);
+    });
+
+
+
+
+    function generateId() {
+        return `img-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    }
+    window.openGallery = function () {
+        document.getElementById('popup-overlay').style.display = 'block';
+        document.getElementById('gallery-popup').classList.add('show');
+        loadGalleryPopUp()
+    }
+
+    window.closeGallery = function () {
+        document.getElementById('popup-overlay').style.display = 'none';
+        document.getElementById('gallery-popup').classList.remove('show');
+    }
+
+    window.loadGalleryPopUp = function (option = false, mainImage = null) {
+        fetch("/admin/gallery_images")
+            .then((response) => {
+                if (!response.ok) throw new Error("Network response was not ok");
+                return response.json();
+            })
+            .then((images) => {
+                const gallerySection = document.getElementById("gallery-section-1");
+                const optionSection = document.getElementById("option-preview");
+                gallerySection.innerHTML = "";
+                optionSection.innerHTML = "";
+                gallerySection.style.display = "block";
+
+                const selectedImages = new Set();
+
+                function renderOptionPreview() {
+                    optionSection.innerHTML = "";
+                    Array.from(selectedImages).forEach((imgUrl) => {
+                        const id = generateId();
+                        const imgContainer = document.createElement("div");
+                        imgContainer.id = id;
+                        imgContainer.style.position = "relative";
+                        imgContainer.style.display = "inline-block";
+                        imgContainer.style.margin = "5px";
+
+                        const imgEl = document.createElement("img");
+                        imgEl.src = imgUrl;
+                        imgEl.style.maxWidth = "100px";
+                        imgEl.style.maxHeight = "100px";
+                        imgEl.style.border = "1px solid #ccc";
+                        imgEl.style.display = "block";
+
+                        const delBtn = document.createElement("button");
+                        delBtn.textContent = "❌";
+                        delBtn.className = "btn btn-sm delete-icon d-block";
+                        delBtn.style.position = "absolute";
+                        delBtn.style.top = "2px";
+                        delBtn.style.right = "2px";
+                        delBtn.style.background = "rgba(255,255,255,0.8)";
+                        delBtn.style.border = "none";
+                        delBtn.style.cursor = "pointer";
+                        delBtn.onclick = () => {
+                            selectedImages.delete(imgUrl);
+                            renderOptionPreview();
+
+                            // Update gallery selection border
+                            document.querySelectorAll("#gallery-section-1 img").forEach((img) => {
+                                if (img.src.endsWith(imgUrl)) {
+                                    img.style.border = "3px solid transparent";
+                                }
+                            });
+                        };
+
+                        imgContainer.appendChild(imgEl);
+                        imgContainer.appendChild(delBtn);
+                        optionSection.appendChild(imgContainer);
+                    });
+                    optionSection.appendChild(document.createElement("hr"));
+                }
+
+                images.forEach((image) => {
+                    const img = document.createElement("img");
+                    img.src = image.url;
+                    img.style.width = "100px";
+                    img.style.height = "100px";
+                    img.style.margin = "5px";
+                    img.style.cursor = "pointer";
+                    img.style.border = "3px solid transparent";
+                    img.style.objectFit = "cover";
+
+                    img.onclick = () => {
+                        if (selectedImages.has(image.url)) {
+                            selectedImages.delete(image.url);
+                            img.style.border = "3px solid transparent";
+                        } else {
+                            selectedImages.add(image.url);
+                            img.style.border = "3px solid #007bff";
+                        }
+
+                        if (option === true) {
+                            renderOptionPreview();
+                        }
+                    };
+
+                    gallerySection.appendChild(img);
+                });
+
+                const doneBtn = document.createElement("button");
+                doneBtn.textContent = "Done";
+                doneBtn.style.display = "block";
+                doneBtn.style.marginTop = "10px";
+                doneBtn.className = "btn btn-primary";
+                doneBtn.onclick = () => {
+                    const selected = Array.from(selectedImages);
+
+                    // Case 1: Add as main images (non-option)
+                    if (option === false) {
+                        const previewList = document.getElementById("image-preview-list");
+                        selected.forEach((imgUrl) => {
+                            const id = generateId();
+                            const imgContainer = document.createElement("div");
+                            imgContainer.id = id;
+                            imgContainer.style.position = "relative";
+                            imgContainer.style.display = "inline-block";
+                            imgContainer.style.margin = "5px";
+
+                            window.uploadedImages.push({ id, dataURL: imgUrl });
+
+                            imgContainer.innerHTML = `
+                                <img src="${imgUrl}" style="max-width: 100px; max-height: 100px; border: 1px solid #ccc;" />
+                                <button onclick="removeUploadedImage('${id}')" 
+                                    class='btn btn-sm delete-icon d-block' 
+                                    style="position: absolute; top: 2px; right: 2px; background: rgba(255,255,255,0.8); border:none; cursor:pointer;">❌</button>
+                            `;
+                            previewList.appendChild(imgContainer);
+                        });
+                    }
+
+                    // Case 2: Add as image options
+                    else if (mainImage && typeof loadImageToFabric === 'function') {
+                        selected.forEach((imgUrl) => {
+                            loadImageToFabric(imgUrl, (optionImg) => {
+                                optionImg.set({
+                                    left: mainImage.mainImage.left,
+                                    top: mainImage.mainImage.top,
+                                    scaleX: mainImage.mainImage.scaleX,
+                                    scaleY: mainImage.mainImage.scaleY,
+                                    angle: mainImage.mainImage.angle,
+                                    flipX: mainImage.mainImage.flipX,
+                                    flipY: mainImage.mainImage.flipY,
+                                    id: generateId(),
+                                });
+                                mainImage.options.push(optionImg);
+
+                            renderUi()
+                            });
+                        });
+                    }
+
+                    closeGallery();
+                };
+
+                gallerySection.appendChild(doneBtn);
+            })
+            .catch((error) => {
+                console.error("Failed to load gallery images:", error);
+                alert("Failed to load gallery images.");
+            });
+    };
+
+
+    window.handleOptionImageUpload = function (mainImage, optionsContainer, imageSource = null) {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.style.display = 'none';
+        fileInput.onchange = function () {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                const dataUrl = event.target.result;
+
+                loadImageToFabric(dataUrl, (optionImg) => {
+                    if (!mainImage.mainImage) {
+                        alert("Main image not found on canvas.");
+                        return;
+                    }
+
+                    const transform = {
+                        left: mainImage.mainImage.left,
+                        top: mainImage.mainImage.top,
+                        scaleX: mainImage.mainImage.scaleX,
+                        scaleY: mainImage.mainImage.scaleY,
+                        angle: mainImage.mainImage.angle,
+                        flipX: mainImage.mainImage.flipX,
+                        flipY: mainImage.mainImage.flipY
+                    };
+
+                    const newId = generateId();
+                    optionImg.set({
+                        ...transform,
+                        id: newId,
+                        selectable: true,
+                        hasControls: true,
+                        hasBorders: true
+                    });
+
+                    mainImage.options.push(optionImg);
+                    renderUi();
+                });
+            };
+
+            reader.readAsDataURL(file); // ✅ Convert File to base64 data URL
+        };
+
+        document.body.appendChild(fileInput);
+        fileInput.click();
+    };
+
+    window.loadImageToFabric = function (source, callback) {
+        // Create a new Image object
+        const img = new Image();
+        img.crossOrigin = "anonymous"; // Needed to avoid CORS issues when loading external images
+
+        img.onload = function () {
+            const fabricImage = new fabric.Image(img, {
+                left: 100,
+                top: 100,
+                selectable: true,
+                hasControls: true,
+                hasBorders: true,
+            });
+
+            if (typeof callback === "function") {
+                callback(fabricImage);
+            }
+        };
+
+        img.onerror = function (err) {
+            console.error("Failed to load image:", source, err);
+            alert("Failed to load image from gallery.");
+        };
+
+        img.src = source;
+    };
+
+    window.addImage = function () {
+        const fileInput = document.getElementById("image-upload");
+        const files = fileInput.files;
+        for (const file of files) {
+            const reader = new FileReader();
+            reader.onload = function (event) {
+            const dataURL = event.target.result;
+            const id = generateId();
+            window.uploadedImages.push({ id, dataURL });
+            const previewList = document.getElementById("image-preview-list");
+            const imgContainer = document.createElement("div");
+            imgContainer.id = id;
+            imgContainer.style.position = "relative";
+            imgContainer.style.display = "inline-block";
+            imgContainer.style.margin = "5px";
+            imgContainer.innerHTML = `
+                <img src="${dataURL}" style="max-width: 100px; max-height: 100px; border: 1px solid #ccc;" />
+                <button onclick="removeUploadedImage('${id}')" 
+                class='btn btn-sm delete-icon d-block' 
+                style="position: absolute; top: 2px; right: 2px; background: rgba(255,255,255,0.8); border:none; cursor:pointer;">❌</button>
+            `;
+            previewList.appendChild(imgContainer);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        fileInput.value = "";
+    };
+    
+
+    window.removeUploadedImage = function (id) {
+        window.uploadedImages = window.uploadedImages.filter((img) => img.id !== id);
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    };
+
+    window.saveImagesToCanvas = async function (inputType='image-swatcher') {
+
+        if (!window.uploadedImages.length) {
+            alert("No images uploaded.");
+            return;
+        }
+        const baseImage = window.baseImageObj;
+        if (!baseImage) {
+            alert("No base image found!");
+            return;
+        }
+
+        if (!window.currentProduct.controls) window.currentProduct.controls = [];
+
+        // Convert fabric.Image.fromURL to a promise
+        const loadImage = ({ id, dataURL }) => {
+            return new Promise((resolve) => {
+                fabric.Image.fromURL(dataURL, function (img) {
+                    const xPos = (window.canvas.width - img.getScaledWidth()) / 2;
+                    const yPos = (window.canvas.height - img.getScaledHeight()) / 2;
+                    img.set({
+                        left: xPos,
+                        top: yPos,
+                        scaleX: 0.3,
+                        scaleY: 0.3,
+                    });
+                    img.id = id;
+                    window.canvas.add(img);
+                    window.currentImageObj = img;
+                    window.currentProduct.controls.push({
+                        mainImage: img,
+                        options: [img],
+                        controlType: 'image',
+                        inputType:inputType
+                    });
+                    resolve(); // Signal that image is done
+                });
+            });
+        };
+
+        // Wait for all images to load
+        await Promise.all(window.uploadedImages.map(loadImage));
+        renderUi(); // ✅ Now safe to call
+        window.uploadedImages = [];
+        document.getElementById('image-preview-list').innerHTML = '';
+    };
+
+    window.saveDesign = function () {
+        const templateName = document.getElementById('template-name').value;
+        if (!templateName) {
+            alert("Please enter a template name");
+            return;
+        }
+        window.currentProduct.name = templateName
+    
+        const safeCanvasJson = window.canvas.toJSON([
+            'name', 'id', 'selectable', 'type', 'variantId', 'category',
+            'left', 'top', 'scaleX', 'scaleY', 'angle', 'fill', 'stroke', 'min', 'max','inputType'
+        ]);
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        safeCanvasJson.objects.forEach(obj => {
+            const fabricObj = window.canvas.getObjects().find(o => o.id === obj.id);
+            if (fabricObj) {
+                obj.variantId = fabricObj.variantId || '';
+                obj.category = fabricObj.category || '';
+            }
+        });
+
+        const variantsWithSelection = (window.currentProduct.variants || []).map(group => {
+            const updatedValues = group.values.map(value => ({
+                ...value,
+                selected: value.pictureUrl === window.currentProduct.selectedVariantImageUrl
+            }));
+            return { ...group, values: updatedValues };
+        });
+
+        const dataURL = window.canvas.toDataURL({ format: 'png', quality: 1.0 });
+
+        const controls = (window.currentProduct.controls || []).map(ctrl => {
+             if (ctrl.controlType === "text"||ctrl.type ==="textbox"||ctrl.type ==="text")  {
+             
+                return {
+                    id: ctrl.id,
+                    min: ctrl.min,
+                    max: ctrl.max,
+                    inputType:ctrl.inputType,
+                    controlType:ctrl.controlType
+                };
+            } else if (ctrl.controlType === "image") {
+                return {
+                    ...ctrl
+                };
+            }
+            return null; // if controlType unknown, skip or handle accordingly
+        }).filter(Boolean);
+
+        const savedDesign = {
+            name: window.currentProduct.name||templateName,
+            canvasJson: safeCanvasJson,
+            variants: variantsWithSelection,
+            preview: dataURL,
+            selected: window.selectedVariantImageUrl,
+            controls:controls
+            }
+
+
+        const designJsonString = JSON.stringify(savedDesign);
+    
+        fetch('/admin/templates', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ template: { data: { ...savedDesign } } })
+        }).then(response => {
+            if (!response.ok) throw new Error("Failed to save design.");
+            return response.json();
+        }).then(data => {
+            alert("Design saved successfully!");
+            closeSave();
+        }).catch(error => {
+            console.error('Error saving design:', error);
+            alert("Failed to save design.");
+        });
+
+        return designJsonString;
+    };
+    
+    window.updateDesign = function () {
+        const templateName = document.getElementById('template-name').value;
+        if (!templateName) {
+            alert("Please enter a template name");
+            return;
+        }
+        window.currentProduct.name = templateName
+    
+        const safeCanvasJson = window.canvas.toJSON([
+            'name', 'id', 'selectable', 'type', 'variantId', 'category',
+            'left', 'top', 'scaleX', 'scaleY', 'angle', 'fill', 'stroke', 'min', 'max','inputType'
+        ]);
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        safeCanvasJson.objects.forEach(obj => {
+            const fabricObj = window.canvas.getObjects().find(o => o.id === obj.id);
+            if (fabricObj) {
+                obj.variantId = fabricObj.variantId || '';
+                obj.category = fabricObj.category || '';
+            }
+        });
+
+        const variantsWithSelection = (window.currentProduct.variants || []).map(group => {
+            const updatedValues = group.values.map(value => ({
+                ...value,
+                selected: value.pictureUrl === window.currentProduct.selectedVariantImageUrl
+            }));
+            return { ...group, values: updatedValues };
+        });
+
+        const dataURL = window.canvas.toDataURL({ format: 'png', quality: 1.0 });
+    
+        const controls = (window.currentProduct.controls || []).map(ctrl => {
+            if (ctrl.controlType === "text"||ctrl.type ==="textbox"||ctrl.type ==="text") {
+                return {
+                    id: ctrl.id,
+                    min: ctrl.min,
+                    max: ctrl.max,
+                    inputType:ctrl.inputType,
+                    controlType:ctrl.controlType
+                };
+            } else if (ctrl.controlType === "image") {
+                return {
+                    ...ctrl
+                };
+            }
+            return null; // if controlType unknown, skip or handle accordingly
+        }).filter(Boolean);
+        const savedDesign = {
+            name: window.currentProduct.name||templateName,
+            canvasJson: safeCanvasJson,
+            variants: variantsWithSelection,
+            preview: dataURL,
+            selected: window.selectedVariantImageUrl,
+            controls:controls
+            }
+
+        const designJsonString = JSON.stringify(savedDesign);
+      
+
+        fetch(`/admin/templates/${window.selectedTemplate.id}`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-Token': csrfToken
+        },
+        body: JSON.stringify({ template: { id: window.selectedTemplate.id, data: { ...savedDesign } } })
+        }).then(response => {
+            if (!response.ok) throw new Error("Failed to save design.");
+            return response.json();
+        }).then(data => {
+            alert("Design saved successfully!");
+            closeSave();
+        }).catch(error => {
+            console.error('Error saving design:', error);
+            alert("Failed to save design.");
+        });
+
+        return designJsonString;
+    };
+
+    window.loadDesign = function (designJson) {
+        if (!designJson) {
+            console.warn('No design found.');
+            return;
+        }
+        if (!window.canvas) {
+            console.error('Canvas is not initialized');
+            return;
+        }
+
+        const savedDesign = designJson;
+        window.canvas.clear();
+
+        // Reset product state
+        window.currentProduct = {
+            name: savedDesign.name || '',
+            controls: savedDesign.controls || [],
+            variants: savedDesign.variants || [],
+            selectedVariantImageUrl: savedDesign.selected || '',
+        };
+
+        window.productImageList = savedDesign.variants || [];
+
+        document.getElementById('template-name').value = savedDesign.name || '';
+        document.getElementById('controls-container').innerHTML = '';
+
+        // Helper: Restore min/max for text controls
+        function restoreTextControls() {
+            window.canvas.getObjects().forEach(obj => {
+                if (obj.type === 'textbox' || obj.type === 'text') {
+                    const meta = (savedDesign.controls || []).find(ctrl => ctrl.id === obj.id && ctrl.min !== undefined);
+                     const metaIndex = (savedDesign.controls || []).findIndex(ctrl => ctrl.id === obj.id && ctrl.min !== undefined);
+                   
+                     if (meta) {
+                        // Restore meta info onto Fabric object
+                        obj.inputType = meta.inputType;
+                        obj.min = meta.min;
+                        obj.max = meta.max;
+
+                        if (meta.text !== undefined) {
+                            // obj.set('text', meta.text);
+                        }
+                    }
+  
+                    savedDesign.controls[metaIndex] =obj
+                   
+                }
+                    window.canvas.requestRenderAll();
+            });
+        }
+
+
+        // Helper: Restore image controls and update control metadata with loaded object ids
+        function restoreImageControls() {
+            window.canvas.getObjects().forEach(obj => {
+                if (obj.type === 'image') {
+                    // Find the main control matching this image by src
+                    const metaIndex = (savedDesign.controls || []).findIndex(ctrl => ctrl.controlType === "image" && ctrl.mainImage?.src === obj.src);
+                    if (metaIndex !== -1) {
+                        // Update mainImage id to canvas object id
+                        savedDesign.controls[metaIndex].mainImage.id = obj.id;
+
+                        // Also assign unique ids to option images if missing
+                        const options = savedDesign.controls[metaIndex].options || [];
+                        options.forEach((optionImg, idx) => {
+                            // If option image doesn't have an id, generate one
+                            if (!optionImg.id) {
+                                optionImg.id = generateId()
+                            }
+                        });
+                    }
+
+                    // Optionally set variantId/category on the Fabric object
+                    const matchingObj = savedDesign.canvasJson.objects.find(o => o.id === obj.id);
+                    if (matchingObj) {
+                        obj.variantId = matchingObj.variantId || '';
+                        obj.category = matchingObj.category || '';
+                    }
+                }
+            });
+        }
+
+        // Helper: Restore background image on canvas if exists
+        function restoreBackgroundImage() {
+            const bg = savedDesign.canvasJson.backgroundImage;
+            if (bg?.src) {
+                fabric.Image.fromURL(bg.src, function (img) {
+                    img.selectable = false;
+                    img.left = bg.left || 0;
+                    img.top = bg.top || 0;
+                    if (bg.width) img.scaleToWidth(bg.width);
+                    if (bg.height) img.scaleToHeight(bg.height);
+                    window.canvas.setBackgroundImage(img, window.canvas.renderAll.bind(window.canvas));
+                    window.baseImageObj = img;
+                });
+            }
+        }
+
+        // Helper: Link canvas objects to controls by id and src for reference
+        function linkControlsToCanvasObjects() {
+            const canvasObjects = window.canvas.getObjects();
+            (savedDesign.controls || []).forEach(ctrl => {
+                if (ctrl.src && ctrl.id) {
+                    const match = canvasObjects.find(obj => obj.id === ctrl.id && obj.src === ctrl.src);
+                    if (match) {
+                        ctrl.mainImage = match;
+                    }
+                }
+            });
+        }
+
+        // Load canvas JSON and then restore all extra data and UI
+        window.canvas.loadFromJSON(savedDesign.canvasJson, () => {
+            window.canvas.renderAll();
+
+            restoreTextControls();
+            restoreImageControls();
+            restoreBackgroundImage();
+            linkControlsToCanvasObjects();
+
+            // Call your UI update functions after loading everything
+            renderUi();
+            updateVariantSection();
+            renderVariantGallery();
+            closeLoadTemplate();
+             updateTemplateActionButtons();
+        });
+    };
+
+
+
+    window.highlightSelectedTextControl = function (e) {
+        const activeObject = window.canvas.getActiveObject();
+
+        if (activeObject && (activeObject.type === 'textbox' || activeObject.type === 'text') && activeObject.id) {
+
+            document.querySelectorAll('.text-controls').forEach(el => {
+                el.classList.remove('highlighted');
+            });
+            document.querySelectorAll('.image-controls').forEach(el => {
+                el.classList.remove('highlighted');
+            });
+            const controlEl = document.getElementById(`text-control-${activeObject.id}`);
+            if (controlEl) {
+                controlEl.classList.add('highlighted');
+                controlEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+        if (activeObject && activeObject.type === 'image' && activeObject.id) {
+
+            document.querySelectorAll('.image-controls').forEach(el => {
+                el.classList.remove('highlighted');
+            });
+            
+            document.querySelectorAll('.text-controls').forEach(el => {
+                el.classList.remove('highlighted');
+            });
+            const controlEl = document.getElementById(`image-control-${activeObject.id}`);
+            if (controlEl) {
+                controlEl.classList.add('highlighted');
+                controlEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }
+
+    window.canvas.on('selection:created', highlightSelectedTextControl);
+    window.canvas.on('selection:updated', highlightSelectedTextControl);
+
+
+
+</script>

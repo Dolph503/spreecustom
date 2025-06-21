@@ -1,0 +1,30 @@
+<div class="pt-3">
+  <div class="design-template">
+    <%= stylesheet_link_tag 'spree/backend/my_extension/template_designer', media: 'all' %>
+
+    <h1>Templates</h1>
+    <p>This is the page for Templates.</p>
+
+    <!-- New Template Button -->
+    <div class="mb-3">
+      <%= link_to 'New Template', admin_template_designer_path,  data: { turbo: false } ,class: 'btn btn-primary' %>
+    </div>
+
+    <h2>Templates List</h2>
+    <div class="fonts" style="display: flex; flex-wrap: wrap; gap: 10px;">
+      <% @templates.each_with_index do |template, index| %>
+        <div class="templates-list text-center border p-2">
+          <%= link_to admin_template_customizer_path(template.id), data: { turbo: false } do %>
+            <img class="cursor" src="<%= template.data['preview'] %>" alt="Preview" width="250" height="250" />
+          <% end %>
+          <p class="text-center"><%= template.data['name'] %></p>
+          <div class="d-flex justify-content-around gap-2 mt-2">
+            <%= link_to 'Edit', admin_template_designer_path(id: template.id),  data: { turbo: false } , class: 'btn btn-warning btn-sm' %>
+
+            <%= button_to 'Delete', spree.admin_template_path(template.id), method: :delete, data: { confirm: 'Are you sure?' }, class: 'btn btn-danger btn-sm' %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>

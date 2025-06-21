@@ -1,0 +1,12 @@
+<% template_active = %w[template_designer template_preview template_gallery template_fonts].include?(controller_name) %>
+<% template_label = Spree.t(:template_designer) %>
+
+<%= nav_item(template_label.html_safe, admin_template_preview_path, data: { turbo: false }, icon: 'inbox', active: template_active) %>
+
+<% if template_active %>
+  <ul class="nav-submenu">
+    <%= nav_item(Spree.t(:template_assets), admin_template_designer_assets_path, data: { turbo: false }, active: controller_name == 'template_assets') %> 
+    <%= nav_item(Spree.t(:template_gallery), admin_template_designer_gallery_path, data: { turbo: false }, active: controller_name == 'template_gallery') %>
+    <%= nav_item(Spree.t(:template_fonts), admin_template_designer_font_path, data: { turbo: false }, active: controller_name == 'template_fonts') %>
+  </ul>
+<% end %>

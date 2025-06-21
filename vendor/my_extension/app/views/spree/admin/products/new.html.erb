@@ -1,0 +1,143 @@
+<style>
+.custom-dropdown {
+  position: relative;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 3px;
+  background: #fff;
+}
+
+.selected-option {
+  font-weight: 500;
+}
+
+.dropdown-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  z-index: 999;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  transition: background 0.2s ease;
+}
+
+.dropdown-item:hover {
+  background: #f1f1f1;
+}
+
+.dropdown-item img {
+  border-radius: 4px;
+}
+
+.preview-image {
+  border: 2px solid #9d9d9d9c;
+  border-radius: 5px;
+  transition: border 0.3s;
+}
+
+.preview-image.selected {
+  border: 2px solid #007bff;
+  box-shadow: 0 0 10px rgba(0, 123, 255, 0.4);
+}
+</style>
+
+<%= render partial: 'spree/admin/shared/error_messages', locals: { target: @product } %>
+
+<% content_for :page_title do %>
+  <%= page_header_back_button spree.admin_products_path, @product %>
+  <%= Spree.t(:new_product) %>
+<% end %>
+
+<%= form_for [:admin, @product] do |f| %>
+  <%= render 'form', f: f %>
+  <%= f.hidden_field :template_id, id: 'selected_template_id' %>
+
+  <div class="row">
+    <div class="col-md-8">
+      <div class='card mb-4'>
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <h5 class="card-title">Template</h5>
+        </div>
+        <div class='card-body'>
+          <div id="template_preview_area" class="mt-3 text-center" style="display: none;">
+            <img id="template_preview_image" class="border-1" src width="200" height="200" />
+          </div>
+
+          <div class="form-group">
+            <div class="custom-select custom-dropdown">
+              <div class="selected-option">Select a template</div>
+              <div class="dropdown-options" style="display: none;">
+                <% @templates.each do |template| %>
+                  <div class="dropdown-item"
+                    data-id="<%= template.id %>"
+                    data-preview="<%= template.data.to_json %>"
+                    data-image="<%= template.data['preview'] %>"
+                    data-name="<%= template.data['name'] %>">
+                    <img src="<%= template.data['preview'] %>" alt="preview" width="40" height="40" />
+                    <span><%= template.data['name'] %></span>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%= render 'spree/admin/shared/new_resource_links' %>
+<% end %>
+
+<script>
+document.addEventListener("turbo:load", function () {
+  const dropdown = document.querySelector(".custom-dropdown");
+  const selected = dropdown.querySelector(".selected-option");
+  const options = dropdown.querySelector(".dropdown-options");
+  const items = dropdown.querySelectorAll(".dropdown-item");
+  const hiddenInput = document.getElementById("selected_template_id");
+  const previewImage = document.getElementById("template_preview_image");
+  const previewArea = document.getElementById("template_preview_area");
+
+  selected.addEventListener("click", function () {
+    options.style.display = options.style.display === "block" ? "none" : "block";
+  });
+
+  items.forEach(item => {
+    item.addEventListener("click", function () {
+      const imgSrc = item.getAttribute("data-image");
+      const name = item.getAttribute("data-name");
+      const id = item.getAttribute("data-id");
+
+      // Update selected dropdown display
+      selected.innerHTML = `<img src="${imgSrc}" width="30" height="30" style="margin-right: 8px; vertical-align: middle;" /> ${name}`;
+      options.style.display = "none";
+
+      // Set selected template ID
+      hiddenInput.value = id;
+
+      // Update preview
+      previewImage.src = imgSrc;
+      previewArea.style.display = "block";
+    });
+  });
+
+  // Close dropdown if clicked outside
+  document.addEventListener("click", function (e) {
+    if (!dropdown.contains(e.target)) {
+      options.style.display = "none";
+    }
+  });
+});
+</script>

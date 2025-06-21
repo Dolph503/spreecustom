@@ -1,0 +1,3752 @@
+
+<%= stylesheet_link_tag 'spree/backend/my_extension/template_designer', media: 'all' %>
+<%= tag.meta name: "csrf-token", content: csrf_meta_tags %>
+<%= tag.meta name: "turbo-cache-control", content: "no-cache" %>
+<%# Load Fabric %>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+<%# Load Fonts %>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        fetch('/admin/font')
+            .then(response => response.json())
+            .then(fonts => {
+                fonts.forEach(font => {
+                    const fontName = font.name;
+                    const fontUrl = font.url;
+
+                    const newFont = new FontFace(fontName, `url(${fontUrl})`);
+                    newFont.load().then(function (loadedFace) {
+                        document.fonts.add(loadedFace);
+                    }).catch(err => {
+                        console.error(`Failed to load font "${fontName}":`, err);
+                    });
+                });
+            })
+            .catch(error => {
+                console.error('Error loading fonts:', error);
+            });
+    });
+</script>
+
+
+<div class=" pt-3">
+    <div class="design-template w-100">
+        <h2>Product Template Customizer</h2>
+        
+        <div id="popup-overlay" class="popup-overlay"
+                onclick="closeTemplatePopup()"></div>
+
+           <div id="template-popup" class="popup">
+                <h3>Add Template</h3>
+                <br>
+
+                <div class='btn-controls justify-content-end'>
+                    <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                        onclick="showVariantInput()">
+                        + Add Variant Type
+                    </button>
+                </div>
+
+                <div id="new-variant-type-wrapper"
+                    style="display: none; margin-top: 10px;">
+                    <label class='vertical-margin'>Variant Name:</label>
+                    <input type="text" id="new-variant-type-name"
+                        placeholder="New Variant Type Name"
+                        class="form-control mb-3">
+                    <button class="mt-2 btn btn-sm btn-primary w-100"
+                        onclick="addVariantType()">
+                        + Confirm Variant Type
+                    </button>
+                    <button class="mt-2 btn btn-sm btn-primary w-100"
+                        onclick="hideVariantInput()">
+                        Cancel
+                    </button>
+                </div>
+                <br>
+                <hr>
+                <br>
+
+                <div id="temp-base-img">
+                    <h4 class='vertical-margin'>Upload Base Template Image Or
+                        select
+                        from the gallery</h4>
+                    <br>
+                    <br>
+                    <div class="d-flex align-items-center gap-2">
+                        <label for="base-template-upload"
+                            class="btn btn-sm btn-primary mb-0">
+                            Upload Images
+                        </label>
+                        <input type="file" id="base-template-upload"
+                            accept="image/*" multiple class="d-none">
+                        <button class="btn btn-sm btn-primary"
+                            onclick="loadGalleryFromDB()">
+                            Load Gallery
+                        </button>
+                    </div>
+                    <br><br>
+                    <div id="gallery-section"
+                        style="display: none; margin-top: 10px;">
+                        <div class='btn-controls'>
+                            <h4>Gallery Images</h4>
+                        </div>
+                        <div class="gallery" id="gallery-db-list"
+                            style="max-height: 400px; overflow-y: auto;">
+                            <% @gallery_images.each_with_index do |image, index|
+                            %>
+                            <div class="gallery-item">
+                                <% if image.image.attached? %>
+                                <%= image_tag main_app.url_for(image.image),
+                                alt:
+                                image.title %>
+                                <p>
+                                    <%= truncate(image.title, length: 20) %>
+                                </p>
+                                <%= button_to 'Delete' ,
+                                spree.admin_destroy_gallery_image_path(image.id),
+                                method: :delete, data: { confirm:
+                                'Are you sure?' },
+                                class: 'btn btn-danger'%>
+                                <% end %>
+                            </div>
+                            <% end %>
+                        </div>
+                        <div class="btn-controls justify-content-between">
+                            <button class="btn btn-sm btn-primary"
+                                onclick="addFromGallery()">
+                                Done
+                            </button>
+                            <button class="btn btn-sm btn-primary"
+                                onclick="closeFromGallery()">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+                <hr>
+
+                <div id="variant-section"></div>
+
+                <br>
+                <div class="btn-controls justify-content-between">
+                    <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                        onclick="addTemplate()">Add
+                        Template</button>
+                    <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                        onclick="closeTemplatePopup()">Close</button>
+                </div>
+            </div>
+            <div id="template-control-popup" class="popup">
+                <h3>Add New Control</h3>
+                <div id="contrl-section-section">
+                    <label class='vertical-margin'>Select Control Type:</label>
+                    <select class="form-control mb-3" id="control-type"
+                        onchange="handleControlTypeChange(this)">
+                        <option value>-- Select --</option>
+                        <option value="text">Text</option>
+                        <option value="textarea">Notes</option>
+                        <option value="date">Date</option>
+                        <option value="number">Number</option>
+                        <option value="image-swatcher">Image Swatcher</option>
+                        <option value="image-drop-down">Image Drop Down</option>
+                         <option value="image-radio">Image Radio</option>
+                    </select>
+
+                     <div id="control-container" style="display: none;">
+                        <label class='vertical-margin'>Control Name:</label>
+                        <input type="text" id="control-name" class="form-control mb-3" placeholder="Enter control name" />
+                    </div>
+
+                    <div id="img-container" style="display: none;">
+                        <hr>
+                        <h4 style="padding: 15px 0;">Image Upload or Select from
+                            Gallery:</h4>
+                        <div class=" align-items-start">
+                            <div id="image-preview-list"
+                                style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+                            </div>
+                            <div
+                                class='btn-controls justify-content-between mt-2'>
+                                <div class="d-flex align-items-center gap-2">
+                                    <label for="image-upload"
+                                        class="btn btn-sm btn-primary mb-0">
+                                        Choose Image
+                                    </label>
+                                    <input type="file" id="image-upload"
+                                        accept="image/*" multiple class="d-none"
+                                        onchange="addImage()">
+                                    <img id="image-preview" src alt
+                                        style="display: none; max-height: 50px; border: 1px solid #ccc; border-radius: 4px;">
+                                </div>
+                                <button class="btn btn-sm btn-secondary"
+                                    onclick="openGallery()">Load From
+                                    Gallery</button>
+                            </div>
+                        </div>
+                    </div>
+                     <div id="text-container" style="display: none;">
+                        <hr>
+                        <h4 id="control-heading" style='padding:15px 0;'>Add Text</h4>
+                        <div>
+                            <label id='field-value' class='vertical-margin'>Text Value:</label>
+                            <input type="text" id="text-input" class="form-control mb-3" placeholder="Enter Value" />
+                            
+                            <div id="min-max" style="margin: 10px 0;">
+                                <label class='vertical-margin'>Min Characters:</label>
+                                <input type="number" id="min-char" class="form-control mb-3" value="1" min="0" />
+                                <label class='vertical-margin'>Max Characters:</label>
+                                <input type="number" id="max-char" class="form-control mb-3" value="50" min="1" />
+                            </div>
+
+                            <small id="char-error" style="color: red; display: none;"></small>
+
+                            <label class='vertical-margin'>Font Size:</label>
+                            <input type="number" id="font-size" class="font-size form-control mb-3" value="20" min="1" max="50" />
+
+                            <label class='vertical-margin'>Font Color:</label>
+                            <input type="color" id="font-color" class="w-100 font-color form-control mb-3" value="#000000" />
+
+                            <label class='vertical-margin'>Stroke Color:</label>
+                            <input type="color" id="stroke-color" class="w-100 form-control mb-3" value="#000000" />
+
+                            <label class='vertical-margin'>Stroke Width:</label>
+                            <input type="number" id="stroke-width" class="form-control mb-3" value="0" min="0" max="10" />
+
+                            <label class='vertical-margin'>Text Format:</label>
+                            <select id="text-transform" class="form-control mb-3">
+                                <option value="0">As typed</option>
+                                <option value="1">ag – lowercase</option>
+                                <option value="2">Ag – Capitalize</option>
+                                <option value="3">AG – UPPERCASE</option>
+                            </select>
+
+                            <label class='vertical-margin'>Font Family:</label>
+                            <select id="font-family" class="font-family form-control mb-3">
+                                <% if @fonts.present? && @fonts.any? %>
+                                <% @fonts.each do |font| %>
+                                <option value="<%= font.name %>"><%= font.name %></option>
+                                <% end %>
+                                <% else %>
+                                <option value="Arial">Arial</option>
+                                <option value="Verdana">Verdana</option>
+                                <option value="Courier New">Courier New</option>
+                                <% end %>
+                            </select>
+
+                            <div class="vertical-margin text-alignment mb-3">
+                                <label class='vertical-margin'>Text Alignment</label>
+                                <br>
+                                <button type="button" class="transparent-button alignment-btn" id="align-left">Left</button>
+                                <button type="button" class="transparent-button alignment-btn" id="align-center">Center</button>
+                                <button type="button" class="transparent-button alignment-btn" id="align-right">Right</button>
+                            </div>
+
+                            <div class="vertical-margin text-style mb-3">
+                                <label class='vertical-margin'>Text Style</label>
+                                <br>
+                                <button type="button" class="transparent-button style-btn" id="bold">B</button>
+                                <button type="button" class="transparent-button style-btn" id="italic">I</button>
+                                <button type="button" class="transparent-button style-btn" id="underline">U</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <hr>
+                <div class="btn-controls justify-content-between">
+                    <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                        onclick="addControl()">Add Control</button>
+                    <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                        onclick="closeControls()">Close</button>
+                </div>
+            </div>
+            <div id="gallery-popup" class="popup">
+                <h3>Add Image</h3>
+                <div id="option-preview"
+                    style='display:flex; gap:5px; flex-wrap:wrap;'>
+                </div>
+                <div id="gallery-section-1" style=" margin-top: 10px;">
+                </div>
+                <div class="btn-controls justify-content-between">
+                    <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                        onclick="addTemplate()">Add Image</button>
+                    <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                        onclick="closeGallery()">Close</button>
+                </div>
+            </div>
+            <div id="save-template-popup" class="popup">
+                <h3>Save Template</h3>
+                <div style=" margin-top: 10px;">
+                    <label class='vertical-margin'>Template Name:</label>
+                    <input type="text" id="template-name"
+                        placeholder="Template Name" class="form-control mb-3">
+                </div>
+                <div class="btn-controls justify-content-between">
+                    <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                        onclick="saveDesign()">Save</button>
+                    <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                        onclick="closeSave()">Close</button>
+                </div>
+            </div>
+            <div id="load-template-popup" class="popup">
+                <h3>Add Template</h3>
+                <div id="load-template" style=" margin-top: 10px;">
+                </div>
+                <div class="btn-controls justify-content-between">
+                    <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                        onclick="addLoadedTemplate()">Load</button>
+                    <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                        onclick="closeLoadTemplate()">Close</button>
+                </div>
+            </div>
+
+
+
+            <div id="control-detail" class="popup">
+           
+                <div class="mt-3">
+                    <strong>Controls:</strong>
+                    <div id="control-detail-list" class="d-flex flex-column mt-2">
+                        <div id="control-container" >
+                            <label class='vertical-margin'>Control Type:</label>
+                            <select class="form-control mb-3" id="control-type-edit">
+                      
+                                <option value="image-swatcher">Image Swatcher</option>
+                                <option value="image-drop-down">Image Drop Down</option>
+                                <option value="image-radio">Image Radio</option>
+                            </select>
+                            <label class='vertical-margin'>Control Name:</label>
+                            <input type="text" id="control-name-edit" class="form-control mb-3" placeholder="Enter control name" />
+                            <div style="display:flex; gap:5px;">
+                                <label class='vertical-margin'>Show Color:</label>
+                            <input type="checkbox" id = "color-show" class="form-control mb-3">
+                            </div>
+                        </div>
+
+                        <div id="img-container-edit" >
+                         
+                          
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="btn-controls justify-content-between mt-3 d-flex">
+                    <button class="btn btn-sm btn-primary" onclick="saveDetail()">Save</button>
+                    <button class="btn btn-sm btn-secondary" onclick="closeDetail()">Close</button>
+                </div>
+            </div>
+
+            <div id="controls-conditions"  class="popup">            
+                <div class="mt-3">
+                    <strong>Select Controls:</strong>
+                    <div id="control-checkbox-list" class="d-flex flex-column mt-2"></div>
+                </div>
+                <div class="btn-controls justify-content-between mt-3 d-flex">
+                    <button class="btn btn-sm btn-primary" onclick="saveConditions()">Save</button>
+                    <button class="btn btn-sm btn-secondary" onclick="closeConditions()">Close</button>
+                </div>
+            </div>
+
+
+            <div id="canvas-size-popup" class="popup">
+                <h3>Enter Details</h3>
+
+                <div style="margin-top: 10px;">
+
+                    <label class='vertical-margin'>Canvas Width (px):</label>
+                    <input type="number" id="canvas-width"
+                        placeholder="e.g. 1000" class="form-control mb-3">
+
+                    <label class='vertical-margin'>Canvas Height (px):</label>
+                    <input type="number" id="canvas-height"
+                        placeholder="e.g. 800" class="form-control mb-3">
+
+                    <%# <label class='vertical-margin'>DPI (for export
+                        only):</label>
+                    <input type="number" id="canvas-dpi" value="72"
+                        class="form-control mb-3">
+
+                    <label class='vertical-margin'>Export Format:</label>
+                    <select id="export-format" class="form-control mb-3">
+                        <option value="png">PNG</option>
+                        <option value="jpg">JPG</option>
+                    </select> %>
+                </div>
+
+                <div class="btn-controls justify-content-between">
+                    <button class="mt-2 btn btn-sm btn-success with-tip d-block"
+                        onclick="addCanvas()">Create</button>
+
+                    <button
+                        class="mt-2 btn btn-sm btn-secondary with-tip d-block"
+                        onclick="closeSizePopup()">Close</button>
+                </div>
+            </div>
+            <div id="canvas-sizer" style='display:none;'>
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                    onclick="openSizePopup()">🔽
+                    Create New</button>
+                <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                    onclick="loadTemplateFromDB()">📂 Load
+                    Template</button>
+            </div>
+            <div id='canvas-body' >
+                <div style="display: flex;
+                    gap: 5px;
+                    display:none;
+                    justify-content: end;
+                    cursor: pointer;" onClick="openSizePopup()">
+                        <span dir="ltr">
+                            <span id="display-width">1000</span>
+                            <span class="cm-mx-1">×</span>
+                            <span id="display-height">1000</span>
+                            <span>px</span>
+                        </span>
+           
+                </div>
+                <div
+                    style="display:flex;  justify-content: space-between; margin-bottom:5px">
+                    <div class="btn-controls">
+                        <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                            onclick="openTemplatePopup()">Add
+                            Template</button>
+                        <h6 class="vertical-margin"> or </h6>
+                        <button class="mt-2 btn btn-sm btn-primary with-tip d-block" onclick="loadTemplateFromDB()">📂 Load
+                           Template</button>
+                    </div>
+                    <div class="btn-controls">
+                        <button id="save-template-btn"
+                            class="mt-2 btn btn-sm btn-primary with-tip "
+                            style="display: inline-block;" onclick="showSave()">💾
+                            Save
+                            As Template</button>
+                        <button id="update-template-btn"
+                            class="mt-2 btn btn-sm btn-warning with-tip "
+                            style="display: none;"
+                            onclick="updateDesign()">🔁 Update Template</button>
+                        <button id="new-template-btn"
+                            class="mt-2 btn btn-sm btn-success with-tip"
+                            style="display: none;"
+                            onclick="showSave()">➕ New Template</button>
+                        <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                            onclick="bringForward()">🔼
+                            Forward</button>
+                        <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                            onclick="sendBackward()">🔽
+                            Backward</button>
+                        <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                            onclick="openControls()">➕ Add
+                            Control</button>
+                        <button class="mt-2 btn btn-sm btn-primary with-tip d-block"
+                            onclick="openConditions()">➕ Add
+                            Condition</button>
+    
+                    </div>
+                </div>
+                
+                <div
+                    <%# style="width: 100%; display: flex; gap: 20px; margin-top: 25px; height: 700px;" %>
+                    style="width: 100%; display: flex; gap: 30px; margin-top: 25px; height: 700px;">
+                    <%# <div > %>
+                    <%# <div style=" width: 60%; position: relative;">
+                        <div
+                            id="canvas-wrapper"
+                            style="  height: 700px; overflow: scroll; position: relative; border: 1px solid #ccc;  ">
+                            <canvas id="canvas" width="1000" height="800"></canvas>
+                        </div>
+                    </div> %>
+                    <div style="width: 60%;">
+                        <canvas id="canvas" width="700" height="700" style="width: 100%; max-width: 100%;"></canvas>
+                    </div>
+    
+                    <div style="width: 40%; overflow-y: auto; height: 700px;">
+                        <div id="variant-gallery-display"></div>
+                        <div id="controls-container"></div>
+                    </div>
+                </main>
+    
+
+                    <input type="file" id="image-upload-option"
+                        style="display: none"
+                        onchange="handleOptionImageUpload()" />
+            </div>
+    </div>
+</div>
+
+
+
+
+<%# Variant Section %>
+<script>
+    window.canvas = new fabric.Canvas('canvas', { preserveObjectStacking: true });
+        window.baseImageObj = null;
+        window.selectedTemplate = null;
+        window.selectedGalleryImageUrl = null;
+        window.selectedBaseImage = null;
+        window.currentImageObj = null;
+        window.textObjects = [];
+        window.loadedTemplateName =null;
+        window.currentImageOriginal=null;
+        window.currentImageBackup=null;
+        window.currentImageIndex=null;
+        window.currentProduct = {
+            name:null,
+            type: '',
+            variants: [],
+            controls:[],
+            conditions:[],
+            selectedVariantImageUrl: ''
+        };
+        window.productImageList = [];
+        window.uploadedImages = [];
+        window.selectedGalleryImageUrls = [];
+
+        window.canvasSetting=null
+    
+    window.openConditions = function () {
+        const overlay = document.getElementById('popup-overlay');
+        const popup = document.getElementById('controls-conditions');
+        const checkboxContainer = document.getElementById('control-checkbox-list');
+        checkboxContainer.innerHTML = '';
+
+        const controls = window.currentProduct?.controls || [];
+
+        overlay.style.display = 'block';
+        popup.classList.add('show');
+
+        controls.forEach((control, index) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'form-check mb-3';
+        function checkIdExists(idToCheck) {
+            return window.currentProduct.conditions.some(condition => condition.id === idToCheck);
+        }
+        function getConditionById(idToCheck) {
+        return window.currentProduct.conditions.find(condition => condition.id === idToCheck) || null;
+        }
+            const checkbox = document.createElement('input');
+            const checkboxId = control.inputType === 'image-swatcher' || control.inputType === 'image-drop-down'|| control.inputType === 'image-radio'
+                ? control.mainImage?.id : control.id;
+            checkbox.className = 'form-check-input';
+            checkbox.type = 'checkbox';
+            checkbox.id = `control-check-${index}`;
+            checkbox.checked = checkIdExists(checkboxId)
+            checkbox.value = checkboxId; 
+
+            const label = document.createElement('label');
+            label.className = 'form-check-label';
+            label.setAttribute('for', `control-check-${index}`);
+            label.textContent = `Show ${control.name}` || `Control ${index + 1}`;
+
+            const conditionWrapper = document.createElement('div');
+            conditionWrapper.id = `condition-wrapper-${ control.inputType === 'image-swatcher' || control.inputType === 'image-drop-down'|| control.inputType === 'image-radio'
+                ? control.mainImage?.id : control.id}`;
+            conditionWrapper.className = 'mt-2 ps-4'; // indent for visual hierarchy
+
+        if(checkIdExists(checkboxId)){
+            showConditionBuilderFor(control, conditionWrapper,getConditionById(checkboxId));
+        }
+        checkbox.onchange = () => {
+        // Ensure the array exists
+        if (!window.currentProduct.conditions) {
+            window.currentProduct.conditions = [];
+        }
+
+        const checkboxId = checkbox.value;
+
+        if (checkbox.checked) {
+            const existingIndex = window.currentProduct.conditions.findIndex(
+            cond => cond.id === checkboxId
+            );
+
+            if (existingIndex === -1) {
+            window.currentProduct.conditions.push({
+                id: checkboxId,
+                checked: true
+            });
+            } else {
+            window.currentProduct.conditions[existingIndex].checked = true;
+            }
+
+            showConditionBuilderFor(control, conditionWrapper);
+        } else {
+            const index = window.currentProduct.conditions.findIndex(
+            cond => cond.id === checkboxId
+            );
+
+            if (index !== -1) {
+                const user =  window.currentProduct.controls.find(
+                cond => cond.id ||  cond?.options?.some(opt => opt?.id === checkboxId)
+            );
+            user.isVisible = true;
+
+             window.currentProduct.conditions.splice(index, 1);
+            }
+
+            conditionWrapper.innerHTML = '';
+        }
+        };
+
+
+            wrapper.appendChild(checkbox);
+            wrapper.appendChild(label);
+            wrapper.appendChild(conditionWrapper);
+            checkboxContainer.appendChild(wrapper);
+        });
+    };
+
+    window.closeConditions = function () {
+        document.getElementById('popup-overlay').style.display = 'none';
+        document.getElementById('controls-conditions').classList.remove('show');
+        document.getElementById('control-checkbox-list').innerHTML = '';
+    };
+    
+    window.saveConditions = function () {
+        function hasInvalidLogic(conditions) {
+        return conditions.some(cond => 
+            Object.values(cond).some(val => val === null || val === undefined || val === '')
+        );
+        }
+        if (hasInvalidLogic(window.currentProduct.conditions)) {
+        alert('Logic is invalid: some condition has null or empty values.');
+        } else {
+            closeConditions()
+        }
+    };
+
+    function showConditionBuilderFor(mainControl, wrapperElement,existing=null) {
+        const controls = window.currentProduct?.controls || [];
+
+        wrapperElement.innerHTML = ''; // clear any existing content
+
+        const group = document.createElement('div');
+        group.className = 'p-3 border rounded';
+        const groupId =mainControl.inputType === 'image-swatcher' || mainControl.inputType === 'image-drop-down'|| mainControl.inputType === 'image-radio'
+                ? mainControl.mainImage?.id : mainControl.id;
+        group.id = `condition-group-${ groupId}`;
+
+        const heading = document.createElement('h6');
+        heading.textContent = `Conditions for "${mainControl.name}"`;
+        group.appendChild(heading);
+
+        const container = document.createElement('div');
+        container.className = 'conditions-container d-flex gap-3';
+        container.style.width='100%';
+        group.appendChild(container);
+        wrapperElement.appendChild(group);
+        addConditionRow(container, controls, groupId,existing); 
+    }
+
+    function addConditionRow(container, controls, excludeControlId, existing = null) {
+        let record = existing?.record || null;
+        let logic = existing?.logic || null;
+        let value = existing?.value || null;
+
+        const row = document.createElement('div');
+        row.className = 'd-flex align-items-start mb-2';
+        row.style.flexWrap = 'nowrap';
+        row.style.width='100%';
+        row.style.gap='5px';
+
+        // Control Select
+        const controlSelect = document.createElement('select');
+        controlSelect.className = 'form-control';
+        controlSelect.innerHTML = '<option value="">-- Select Control --</option>';
+        controlSelect.style.borderRadius="8px";
+        controls.filter(c => {
+            if (c.inputType === 'image-swatcher' || c.inputType === 'image-drop-down' || c.inputType === 'image-radio') {
+                return c?.mainImage?.id !== excludeControlId;
+            } else {
+                return c.id !== excludeControlId;
+            }
+        }).forEach(control => {
+            const option = document.createElement('option');
+            const isImageType = control.inputType === 'image-swatcher' || control.inputType === 'image-drop-down' || control.inputType === 'image-radio';
+            option.value = isImageType ? control.mainImage?.id : control.id;
+            option.dataset.type = control.inputType;
+            option.dataset.controlId = option.value;
+            option.textContent = control.name;
+            controlSelect.appendChild(option);
+        });
+
+        const controlWrapper = document.createElement('div');
+        controlWrapper.style.width = '33%';
+        controlWrapper.appendChild(controlSelect);
+
+        // Logic Select
+        const logicSelect = document.createElement('select');
+        logicSelect.className = 'form-control';
+        logicSelect.style.borderRadius="8px";
+        logicSelect.innerHTML = `
+            <option value="null">Select</option>
+            <option value="==">Equal</option>
+            <option value="!=">Not Equal</option>
+        `;
+        logicSelect.value = logic || 'null';
+
+        const logicWrapper = document.createElement('div');
+        logicWrapper.style.width = '20%';
+        logicWrapper.appendChild(logicSelect);
+
+        const valueContainer = document.createElement('div');
+        valueContainer.className = 'flex-grow-1';
+        valueContainer.style.width = '47%';
+
+        logicSelect.onchange = function () {
+            logic = this.value;
+            updateCondition();
+        };
+
+        controlSelect.onchange = function () {
+            const selectedOption = controlSelect.options[controlSelect.selectedIndex];
+            const selectedType = selectedOption.dataset.type;
+            const controlId = selectedOption.dataset.controlId;
+
+            record = controlId;
+            console.log(record,"ccc",controlId)
+            valueContainer.innerHTML = '';
+
+            const control = controls.find(c => {
+                const isImage = c.inputType === 'image-swatcher' || c.inputType === 'image-drop-down' || c.inputType === 'image-radio';
+                return (isImage ? c.mainImage?.id : c.id) === controlId;
+            });
+
+            if (!control) return;
+
+            if (selectedType === 'image-swatcher' || selectedType === 'image-drop-down' || selectedType === 'image-radio') {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'custom-dropdown-wrapper position-relative';
+
+                const button = document.createElement('button');
+                button.className = 'form-control text-start d-flex align-items-center gap-2';
+                button.type = 'button';
+                button.innerHTML = '<span>-- Select Option --</span>';
+                button.style.width = '100%';
+
+                const dropdown = document.createElement('ul');
+                dropdown.className = 'custom-dropdown-list list-group position-absolute bg-white border mt-1 w-100 d-none';
+                dropdown.style.zIndex = 1000;
+                dropdown.style.maxHeight = '200px';
+                dropdown.style.overflowY = 'auto';
+
+                (control.options || []).forEach(opt => {
+                    const item = document.createElement('li');
+                    item.className = 'list-group-item d-flex align-items-center gap-2';
+                    item.style.cursor = 'pointer';
+
+                    const img = document.createElement('img');
+                    img.src = opt.src || opt.getSrc();
+                    img.style.width = '30px';
+                    img.style.height = '30px';
+                    img.style.objectFit = 'contain';
+
+                    const label = document.createElement('span');
+                    label.textContent = opt.name || opt.id;
+
+                    item.onclick = () => {
+                        value = opt.id;
+                        updateCondition();
+
+                        // UI
+                        button.innerHTML = '';
+                        const selectedImg = document.createElement('img');
+                        selectedImg.src = opt.src || opt.getSrc();
+                        selectedImg.style.width = '30px';
+                        selectedImg.style.height = '30px';
+                        selectedImg.style.objectFit = 'contain';
+
+                        const selectedLabel = document.createElement('span');
+                        selectedLabel.textContent = opt.name || opt.id;
+
+                        button.appendChild(selectedImg);
+                        button.appendChild(selectedLabel);
+                        button.setAttribute('data-value', opt.id);
+                        dropdown.classList.add('d-none');
+                    };
+
+                    item.appendChild(img);
+                    item.appendChild(label);
+                    dropdown.appendChild(item);
+                });
+
+                button.onclick = () => {
+                    dropdown.classList.toggle('d-none');
+                };
+
+                // Pre-select existing value
+                if (existing && value) {
+                    const selectedOption = control.options.find(o => o.id === value);
+                    if (selectedOption) {
+                        const selectedImg = document.createElement('img');
+                        selectedImg.src = selectedOption.src || selectedOption.getSrc();
+                        selectedImg.style.width = '30px';
+                        selectedImg.style.height = '30px';
+                        selectedImg.style.objectFit = 'contain';
+
+                        const selectedLabel = document.createElement('span');
+                        selectedLabel.textContent = selectedOption.name || selectedOption.id;
+
+                        button.innerHTML = '';
+                        button.appendChild(selectedImg);
+                        button.appendChild(selectedLabel);
+                        button.setAttribute('data-value', selectedOption.id);
+                    }
+                }
+
+                wrapper.appendChild(button);
+                wrapper.appendChild(dropdown);
+                valueContainer.appendChild(wrapper);
+            } else {
+                let input;
+                switch (selectedType) {
+                    case 'text': input = document.createElement('input'); input.type = 'text'; break;
+                    case 'number': input = document.createElement('input'); input.type = 'number'; break;
+                    case 'date': input = document.createElement('input'); input.type = 'date'; break;
+                    case 'textarea': input = document.createElement('textarea'); break;
+                    default: input = document.createElement('input'); input.type = 'text';
+                }
+                input.className = 'form-control';
+                input.value = value || '';
+                input.style.width = '100%';
+                input.onchange = function () {
+                    value = this.value;
+                    updateCondition();
+                };
+                valueContainer.appendChild(input);
+            }
+
+            updateCondition(); // initialize condition after control selection
+        };
+
+        function updateCondition() {
+            if (!window.currentProduct.conditions) window.currentProduct.conditions = [];
+
+            const existingIndex = window.currentProduct.conditions.findIndex(
+                c => c.id === excludeControlId
+            );
+
+            const newCondition = {
+                id: excludeControlId,
+                record,
+                logic,
+                value
+            };
+
+            if (existingIndex !== -1) {
+                window.currentProduct.conditions[existingIndex] = newCondition;
+            } else {
+                window.currentProduct.conditions.push(newCondition);
+            }
+        }
+
+        // Set initial values if editing
+        if (existing && record) {
+            controlSelect.value = record;
+            controlSelect.dispatchEvent(new Event('change'));
+            logicSelect.value = logic || 'null';
+        }
+
+        row.appendChild(controlWrapper);
+        row.appendChild(logicWrapper);
+        row.appendChild(valueContainer);
+        container.appendChild(row);
+    }
+
+
+
+    window.openDetail = function (image, imageIndex) {
+        // Create a deep clone of the image to work with safely
+        window.currentImageOriginal = image;
+        window.currentImageBackup = JSON.parse(JSON.stringify(image));
+        window.currentImageIndex = imageIndex;
+
+        document.getElementById('popup-overlay').style.display = 'block';
+        document.getElementById('control-detail').classList.add('show');
+
+        document.getElementById('control-name-edit').value = image.name || 'Image';
+        document.getElementById('control-type-edit').value = image.inputType || '';
+
+        document.getElementById('color-show').checked = image.showColor || false;
+
+        const container = document.getElementById('img-container-edit');
+        container.innerHTML = ''; // Clear old content
+
+        image.options.forEach((img, index) => {
+        const imageSection = document.createElement('div');
+        imageSection.className = 'option-row';
+        imageSection.style.marginBottom = '15px';
+        imageSection.style.padding = '5px';
+        imageSection.style.border = '1px solid #ccc';
+        imageSection.style.display = 'flex';
+        imageSection.style.flexDirection = 'column'; // stack vertically
+        imageSection.style.gap = '8px';
+
+        // Name input (full width)
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        let lastValidValue = img.name || '';
+
+        nameInput.placeholder = 'Enter text';
+        nameInput.value = lastValidValue;
+        nameInput.className = "form-control mb-3";
+        nameInput.style.width = '100%';
+
+        nameInput.addEventListener('input', (e) => {
+            const value = e.target.value.trim();
+            if (value !== '') {
+                lastValidValue = value;
+                img.name = value;
+            } else {
+                e.target.value = lastValidValue; // Reset to last valid input
+            }
+        });
+            imageSection.appendChild(nameInput);
+
+            // Container for image preview and color input side-by-side
+            const bottomRow = document.createElement('div');
+            bottomRow.style.display = 'flex';
+            bottomRow.style.alignItems = 'center';
+            bottomRow.style.gap = '10px';
+
+            // Image preview
+            if (true) {
+                const imgPreview = document.createElement('img');
+                imgPreview.src = img.src||img.getSrc()||"";
+                imgPreview.alt = 'Preview';
+                imgPreview.style.width = '50px';
+                imgPreview.style.height = '50px';
+                imgPreview.style.objectFit = 'contain';
+                imgPreview.style.border = '1px solid #ccc';
+                imgPreview.style.borderRadius = '4px';
+                bottomRow.appendChild(imgPreview);
+            }
+
+            // Color input
+            const colorInput = document.createElement('input');
+            colorInput.type = 'color';
+            colorInput.value = img.color || '#000000';  // fallback to black if no color
+            colorInput.title = img.color || 'No color selected';
+
+            // Style color input
+            colorInput.style.width = '30px';
+            colorInput.style.height = '30px';
+            colorInput.style.border = '1px solid #999';
+            colorInput.style.borderRadius = '4px';
+            colorInput.style.cursor = 'pointer';
+            colorInput.style.padding = '0';
+            colorInput.style.background = 'none';
+            colorInput.style.webkitAppearance = 'none';
+            colorInput.style.appearance = 'none';
+            colorInput.style.outline = 'none';
+
+            colorInput.addEventListener('input', (e) => {
+                img.color = e.target.value;
+                colorInput.title = e.target.value;
+            });
+
+            bottomRow.appendChild(colorInput);
+
+            imageSection.appendChild(bottomRow);
+            container.appendChild(imageSection);
+            });
+    };
+
+    window.saveDetail = function () {
+        const nameInput = document.getElementById('control-name-edit');
+        const typeInput = document.getElementById('control-type-edit');
+        const color = document.getElementById('color-show');
+        window.currentImageOriginal.name = nameInput.value;
+        window.currentImageOriginal.inputType = typeInput.value;
+        window.currentImageOriginal.showColor = color.checked;
+        renderUi()
+        document.getElementById('popup-overlay').style.display = 'none';
+        document.getElementById('control-detail').classList.remove('show');
+    };
+        
+    
+    window.bringForward = function () {
+        const active = window.canvas.getActiveObject();
+        if (active) window.canvas.bringForward(active);
+    }
+
+    window.sendBackward = function () {
+        const active = window.canvas.getActiveObject();
+        if (active) window.canvas.sendBackwards(active);
+    }
+    
+    window.openSizePopup = function () {
+            document.getElementById('popup-overlay').style.display = 'block';
+            document.getElementById('canvas-size-popup').classList.add('show');
+    }
+
+    window.closeSizePopup = function () {
+            document.getElementById('popup-overlay').style.display = 'none';
+            document.getElementById('canvas-size-popup').classList.remove('show');
+    }
+    
+    function exportFabricCanvas() {
+        const dpi = parseInt(document.getElementById('canvas-dpi').value) || 72;
+        const format = document.getElementById('export-format').value;
+        const templateName = document.getElementById('template-name').value || 'canvas';
+
+        const scaleFactor = dpi / 72;
+        const exportWidth = canvas.getWidth() * scaleFactor;
+        const exportHeight = canvas.getHeight() * scaleFactor;
+
+        // Create temp canvas for export
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = exportWidth;
+        exportCanvas.height = exportHeight;
+
+        const ctx = exportCanvas.getContext('2d');
+
+        // Fill white background if JPG
+        if (format === 'jpg') {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, exportWidth, exportHeight);
+        }
+
+        // Scale and render fabric canvas to temp canvas
+        const dataURL = canvas.toDataURL({
+            format: format,
+            multiplier: scaleFactor,
+            enableRetinaScaling: false,
+        });
+
+        const link = document.createElement('a');
+        link.download = `${templateName}.${format}`;
+        link.href = dataURL;
+        link.click();
+    }
+
+    window.addCanvas = function () {
+        const width = parseInt(document.getElementById('canvas-width').value);
+        const height = parseInt(document.getElementById('canvas-height').value);
+        // const dpi = parseInt(document.getElementById('canvas-dpi').value) || 72;
+        // const format = document.getElementById('export-format').value || 'png';
+
+        if (!width || !height) {
+            alert('Please enter valid width and height');
+            return;
+        }
+
+        // Store canvas settings globally
+        window.canvasSetting = { width, height, /*dpi, format*/ };
+
+        const canvasElement = document.getElementById('canvas');
+        canvasElement.width = width;
+        canvasElement.height = height;
+
+        if (window.canvas) {
+            const prevWidth = window.canvas.getWidth();
+            const prevHeight = window.canvas.getHeight();
+            const widthDiff = prevWidth - width;
+            const heightDiff = prevHeight - height;
+            const scaleX = width / prevWidth;
+            const scaleY = height / prevHeight;
+
+            window.canvas.getObjects().forEach(obj => {
+
+                const left = obj.left - (widthDiff/2);
+                const top = obj.top - (heightDiff/2);
+                obj.left = left;
+                obj.top = top;
+                obj.setCoords();
+            });
+
+            const bg = window.canvas.backgroundImage;
+            if (bg) {
+                const left = bg.left - (widthDiff/2);
+                const top = bg.top - (heightDiff/2);
+                bg.left = left;
+                bg.top = top;
+            
+                bg.setCoords();
+            }
+
+            window.canvas.setWidth(width);
+            window.canvas.setHeight(height);
+            window.canvas.renderAll();
+
+            // Sync control values
+            window.canvas.getObjects().forEach(obj => {
+                if (obj.id) {
+                    window.syncInputsFromCanvas(obj);
+                }
+            });
+
+        } else {
+            // Create canvas if not initialized
+            window.canvas = new fabric.Canvas('canvas', { preserveObjectStacking: true });
+            window.canvas.setWidth(width);
+            window.canvas.setHeight(height);
+        }
+
+        // Show/hide UI
+        document.getElementById('canvas-body').style.display = 'block';
+        document.getElementById('canvas-sizer').style.display = 'none';
+        document.getElementById('popup-overlay').style.display = 'none';
+        document.getElementById('canvas-size-popup').classList.remove('show');
+
+        // Update display
+        document.getElementById('display-width').textContent = width;
+        document.getElementById('display-height').textContent = height;
+        // document.getElementById('display-dpi').textContent = dpi;
+        // document.getElementById('display-format').textContent = format.toUpperCase();
+    };
+
+
+
+
+    window.openTemplatePopup = function () {
+            document.getElementById('popup-overlay').style.display = 'block';
+            document.getElementById('template-popup').classList.add('show');
+            updateVariantSection()
+    }
+
+    window.closeTemplatePopup = function () {
+        document.getElementById('popup-overlay').style.display = 'none';
+        document.getElementById('template-popup').classList.remove('show');
+    }
+    
+    window.showSave = function () {
+        document.getElementById('popup-overlay').style.display = 'block';
+        document.getElementById('save-template-popup').classList.add('show');
+    }
+
+    window.closeSave = function () {
+        document.getElementById('popup-overlay').style.display = 'none';
+        document.getElementById('save-template-popup').classList.remove('show');
+    }
+
+    window.closeLoadTemplate = function () {
+        document.getElementById('popup-overlay').style.display = 'none';
+        document.getElementById('load-template-popup').classList.remove('show');
+    }
+    
+    window.addLoadedTemplate = function () {
+        if (window.selectedTemplate) {
+            loadDesign(window.selectedTemplate.data)
+        }
+        else {
+            alert("Select a template first!");
+        }
+    }
+
+    window.updateTemplateActionButtons = function () {
+        if (window.selectedTemplate) {
+            document.getElementById('save-template-btn').style.display = 'none';
+            document.getElementById('update-template-btn').style.display = 'inline-block';
+            document.getElementById('new-template-btn').style.display = 'inline-block';
+        } else {
+            document.getElementById('save-template-btn').style.display = 'inline-block';
+            document.getElementById('update-template-btn').style.display = 'none';
+            document.getElementById('new-template-btn').style.display = 'none';
+        }
+    }
+
+    window.loadTemplateFromDB = function () {
+        document.getElementById('popup-overlay').style.display = 'block';
+        document.getElementById('load-template-popup').classList.add('show');
+        fetch("/admin/templates").then(response => {
+            if (!response.ok) throw new Error("Network response was not ok");
+            return response.json();
+        }).then(images => {
+            const gallerySection = document.getElementById("load-template");
+            gallerySection.innerHTML = "";
+            gallerySection.style.display = "flex";            
+            gallerySection.style.flexWrap = "wrap";
+            gallerySection.style.gap = "2px";
+
+            images.forEach(image => {
+                const imageParent = document.createElement("div");
+                imageParent.className = 'image-parent-div'
+                const img = document.createElement("img");
+                img.src = image.data.preview;
+                img.style.width = "150px";
+                img.style.height = "150px";
+                img.style.margin = "5px";
+                img.style.cursor = "pointer";
+                img.style.border = '1px solid';
+                img.onclick = () => {
+                    document.querySelectorAll("#load-template img").forEach(el => el.classList.remove("selected"));
+                    window.selectedTemplate = image
+                    img.classList.add("selected");
+                };
+                imageParent.appendChild(img)
+                const nameSpan = document.createElement('div')
+                nameSpan.className='text-center'
+                nameSpan.textContent = image.data.name
+                imageParent.appendChild(nameSpan)
+                gallerySection.appendChild(imageParent);
+            });
+        }).catch(error => {
+            console.error("Failed to load gallery images:", error);
+            alert("Failed to load gallery images.");
+        });
+    }
+
+    window.updateVariantSection = function () {
+        const variantSection = document.getElementById('variant-section');
+        if(variantSection){
+        variantSection.innerHTML = '';
+        }
+        window.productImageList.forEach((variant, index) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'variant-wrapper mb-4';
+            wrapper.innerHTML = `<br><br>`;
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'btn-controls justify-content-between'
+            const label = document.createElement('span');
+            label.className = "vertical-margin"
+            label.innerHTML = `<h4 class="vertical-margin">${variant.name}</h4>`
+            const addVariantButton = document.createElement('button');
+            addVariantButton.innerText = '+ Add Variant';
+            addVariantButton.className = 'mt-2 btn btn-sm btn-primary';
+            addVariantButton.onclick = () => {
+                document.querySelectorAll('.variant-form-container').forEach(c => c.innerHTML = '');
+                showVariantForm(index, formContainer,variant.name);
+            };
+            const deleteDiv = document.createElement('div');
+            deleteDiv.className = 'btn-controls justify-content-end'
+            const deleteVariantTypeButton = document.createElement('button');
+                deleteVariantTypeButton.innerText = 'Delete Type';
+                deleteVariantTypeButton.className = ' mt-2 btn btn-sm btn-danger ms-2';
+                deleteVariantTypeButton.onclick = () => {
+                    if (confirm(`Are you sure you want to delete "${variant.name}" and all its variants?`)) {
+                        window.productImageList.splice(index, 1);
+                        updateVariantSection();
+                    }
+            };
+            deleteDiv.appendChild(deleteVariantTypeButton)
+            labelDiv.appendChild(label);
+            labelDiv.appendChild(addVariantButton);
+            wrapper.appendChild(labelDiv);
+            if (variant.values.length > 0) {
+                const group = document.createElement('div');
+                group.className = 'variant-group d-flex flex-wrap gap-2 mt-2';
+
+                variant.values.forEach((value, valueIndex) => {
+                    const valueContainer = document.createElement('div');
+                    valueContainer.className = 'variant-item position-relative';
+                    valueContainer.innerHTML = `
+                    <img src="${value.pictureUrl}" alt="${value.value}" class="img-thumbnail" style="width: 80px; height: 80px;" />
+                `;
+
+                    const removeIcon = document.createElement('span');
+                    removeIcon.innerText = '×';
+                    removeIcon.className = 'remove-icon';
+                    Object.assign(removeIcon.style, {
+                        position: 'absolute',
+                        top: '5px',
+                        right: '5px',
+                        cursor: 'pointer',
+                        background: '#fff',
+                        border: '1px solid #ccc',
+                        borderRadius: '50%',
+                        width: '20px',
+                        height: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 'bold',
+                        zIndex: 1
+                    });
+
+                    removeIcon.onclick = () => {
+                        variant.values.splice(valueIndex, 1);
+                        updateVariantSection();
+
+                    };
+
+                    valueContainer.appendChild(removeIcon);
+                    group.appendChild(valueContainer);
+                });
+
+                wrapper.appendChild(group);
+            }
+            const formContainer = document.createElement('div');
+            formContainer.className = 'variant-form-container mt-2';
+            formContainer.dataset.variantIndex = index;
+            wrapper.appendChild(formContainer);
+
+
+            wrapper.appendChild(deleteDiv);
+            variantSection.appendChild(wrapper);
+        });
+    };
+     
+    window.showVariantInput = function () {
+        document.getElementById('new-variant-type-wrapper').style.display = 'block';
+    }
+
+    window.hideVariantInput = function () {
+         const input = document.getElementById('new-variant-type-name'); 
+         input.value = '';
+        document.getElementById('new-variant-type-wrapper').style.display = 'none';
+    }
+
+    window.addVariantType = function () {
+        const input = document.getElementById('new-variant-type-name');
+        const typeName = input.value.trim();
+        if (!typeName) {
+            alert("Please enter a variant type name");
+            return;
+        }
+        const newType = {
+            name: typeName,
+            values: []
+        };
+        window.productImageList.push(newType);
+        input.value = '';
+        document.getElementById('new-variant-type-wrapper').style.display = 'none';
+        updateVariantSection();
+    }
+
+    function showVariantForm(index, container,name=null) {
+        const form = document.createElement('div');
+        form.innerHTML = `
+            <div class="d-flex align-items-start gap-3 mb-2 justify-content-between">
+                <div class="text-center">
+                    <div id="variant-image-preview-${index}" class="mb-2" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+                </div>
+            </div>
+            <div class="d-flex align-items-start gap-3 mb-2 justify-content-between">
+                <div class="text-center">               
+                    <label for="variant-image-${index}" class="btn btn-sm btn-primary mb-0">Choose Images</label>
+                    <input type="file" id="variant-image-${index}" accept="image/*" class="d-none" multiple>
+                </div>
+                 <div class="text-center">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="loadGalleryFromDB('${name}')">Load from Gallery</button>
+            </div>
+            </div>
+            <button class='mt-2 btn btn-sm btn-primary w-100' onclick="addVariant(${index})">Add</button>
+            <button class='mt-2 btn btn-sm btn-secondary w-100' onclick="closeVariant()">Cancel</button>
+            <hr>`;
+
+        container.innerHTML = '';
+        container.appendChild(form);
+
+        const imageInput = document.getElementById(`variant-image-${index}`);
+        const imagePreviewContainer = document.getElementById(`variant-image-preview-${index}`);
+
+        imageInput.addEventListener('change', function () {
+            imagePreviewContainer.innerHTML = '';
+            const files = Array.from(this.files);
+            files.forEach(file => {
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                img.style.maxWidth = '50px';
+                img.style.display = 'block';
+                imagePreviewContainer.appendChild(img);
+            });
+        });
+    }
+
+    window.closeVariant = function(index){
+        document.querySelectorAll('.variant-form-container').forEach(c => c.innerHTML = '');
+    }
+
+    window.addVariant = function (index) {
+        const input = document.getElementById(`variant-image-${index}`);
+        const files = Array.from(input.files);
+
+        if (!files.length) {
+            return alert("Please select at least one image file.");
+        }
+
+        files.forEach((file, i) => {
+            const fileName = file.name.split('.').slice(0, -1).join('') || `design-${index + 1}-${i + 1}`;
+
+            // Create FileReader
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                const pictureUrl = e.target.result;
+
+                // Initialize productImageList
+                if (!window.productImageList[index]) {
+                    window.productImageList[index] = { values: [] };
+                }
+                if (!window.productImageList[index].values) {
+                    window.productImageList[index].values = [];
+                }
+
+                // Add the base64 image to the productImageList
+                window.productImageList[index].values.push({
+                    value: fileName,
+                    pictureUrl
+                });
+
+                updateVariantSection(); // Refresh UI
+            };
+
+            // Read the file as base64 (since it's a File object, not a URL)
+            if (file && file instanceof File) {
+                reader.readAsDataURL(file);
+            } else {
+                console.warn("Skipped non-File input or already processed:", file);
+            }
+        });
+
+        closeVariant(); // Optionally close modal/form
+    };
+
+
+    window.loadGalleryFromDB = function (variant = null) {
+        fetch("/admin/gallery_images")
+            .then(response => {
+                if (!response.ok) throw new Error("Network response was not ok");
+                return response.json();
+            })
+            .then(images => {
+                const gallerySection = document.getElementById("gallery-section");
+                const galleryDbSection = document.getElementById("gallery-db-list");
+                galleryDbSection.innerHTML = "";
+                gallerySection.style.display = "block";
+
+                window.selectedGalleryImageUrls = [];
+                if (!window.productImageList) window.productImageList = [];
+
+                let targetVariant = variant
+                    ? window.productImageList.find(v => v.name === variant)
+                    : window.productImageList.find(v => v.name === "Design");
+
+                if (!targetVariant) {
+                    targetVariant = { name: variant || "Design", values: [] };
+                    window.productImageList.push(targetVariant);
+                }
+
+                images.forEach((image, index) => {
+                    const img = document.createElement("img");
+                    img.src = image.url;
+                    img.alt = "Gallery Image";
+                    img.className = "gallery-img";
+                    img.dataset.url = image.url;
+                    img.style.width = "100px";
+                    img.style.height = "100px";
+                    img.style.margin = "5px";
+                    img.style.cursor = "pointer";
+
+                img.onclick = async () => {
+                    const url = image.url;
+                    const name = image.name?.split('.').slice(0, -1).join('') || `design-${index + 1}`;
+                    const isAlreadySelected = window.selectedGalleryImageUrls.includes(url);
+
+                    let base64Image = url;
+
+                    if (!url.startsWith("data:image/")) {
+                        try {
+                            const blob = await fetch(url).then(res => res.blob());
+                            base64Image = await new Promise((resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result);
+                                reader.onerror = reject;
+                                reader.readAsDataURL(blob);
+                            });
+                        } catch (err) {
+                            console.error("Failed to convert image to base64:", err);
+                            alert("Failed to convert image to base64.");
+                            return;
+                        }
+                    }
+
+                    if (isAlreadySelected) {
+                        // Deselect
+                        window.selectedGalleryImageUrls = window.selectedGalleryImageUrls.filter(u => u !== url);
+                        img.classList.remove("selected");
+
+                        // Now remove by base64 match
+                        targetVariant.values = targetVariant.values.filter(v => v.pictureUrl !== base64Image);
+                    } else {
+                        // Select
+                        window.selectedGalleryImageUrls.push(url);
+                        img.classList.add("selected");
+
+                        targetVariant.values.push({
+                            value: name,
+                            pictureUrl: base64Image,
+                        });
+                    }
+
+                    // updateVariantSection(); // Uncomment if needed
+                };
+                    galleryDbSection.appendChild(img);
+                });
+            })
+            .catch(error => {
+                console.error("Failed to load gallery images:", error);
+                alert("Failed to load gallery images.");
+            });
+    };
+
+
+    window.addFromGallery = function () {
+        document.getElementById('gallery-section').style.display = 'none';
+        const galleryDbSection = document.getElementById("gallery-db-list");
+        updateVariantSection()
+        galleryDbSection.innerHTML = "";
+    }
+
+    window.closeFromGallery = function () {
+        document.getElementById('gallery-section').style.display = 'none';
+        const galleryDbSection = document.getElementById("gallery-db-list");
+        // updateVariantSection()
+        galleryDbSection.innerHTML = "";
+    }
+
+    window.addTemplate = function () {
+        window.baseImageObj = null
+        const gallerySection = document.getElementById("gallery-section");
+
+        const galleryDbSection = document.getElementById("gallery-db-list");
+             
+        galleryDbSection.innerHTML = "";
+        gallerySection.style.display = "none";
+        renderVariantGallery();
+        closeTemplatePopup()
+    }
+
+    window.renderVariantGallery = function () {
+        const gallery = document.getElementById('variant-gallery-display');
+        gallery.innerHTML = '';
+
+        // Step 1: Update variants from productImageList if available
+        if (window.productImageList) {
+            const validVariants = window.productImageList.filter(v => v.values && v.values.length > 0);
+            window.currentProduct.variants = validVariants;
+        }
+
+        // Step 2: Use first available variant with at least one value
+        const firstAvailableVariant = window.currentProduct.variants.find(v => v.values && v.values.length > 0);
+
+        // Step 3: Set the base image if available, else reset canvas and product
+        if (firstAvailableVariant && firstAvailableVariant.values[0]) {
+            setBaseImageFromURL(firstAvailableVariant.values[0].pictureUrl);
+        } else {
+            window.canvas.clear();
+            window.currentProduct = {
+                type: '',
+                variants: [],
+                controls: [],
+                selectedVariantImageUrl: ''
+            };
+        }
+
+        // Step 4: Render gallery for each variant
+        window.currentProduct.variants.forEach((variant) => {
+            if (variant.values.length < 2) return;
+
+            const groupParent = document.createElement('div');
+            groupParent.className = 'variant-parent';
+
+            const title = document.createElement('div');
+            title.className = 'variant-title';
+            title.innerText = variant.name;
+
+            const group = document.createElement('div');
+            group.className = 'variant-group';
+
+            const itemsContainer = document.createElement('div');
+            itemsContainer.className = 'variant-items';
+
+            variant.values.forEach((value) => {
+                const item = document.createElement('div');
+                item.className = 'variant-item';
+                item.innerHTML = `<img src="${value.pictureUrl}" alt="${value.value}" />`;
+                item.onclick = () => switchVariant(value);
+                itemsContainer.appendChild(item);
+            });
+
+            group.appendChild(itemsContainer);
+            groupParent.appendChild(title);
+            groupParent.appendChild(group);
+            gallery.appendChild(groupParent);
+        });
+    };
+
+    window.switchVariant = function (value) {
+        fabric.Image.fromURL(value.pictureUrl, function (img) {
+            window.baseImageObj = img;
+            img.selectable = true;
+            img.scaleToWidth(img.width);
+            img.scaleToHeight(img.height);
+            img.left = (window.canvas.width - img.width) / 2;
+            img.top = (window.canvas.height - img.height) / 2;
+
+            window.currentProduct.selectedVariantImageUrl = value.pictureUrl;
+            window.canvas.setBackgroundImage(img, window.canvas.renderAll.bind(canvas));
+        });
+    }
+
+</script>
+
+<%# Varaint Image OnChange %>
+<script>
+    window.setBaseImageFromURL = function (imageUrl) {
+        function isBase64(str) {
+            return /^data:image\/(png|jpeg|jpg|gif|webp);base64,/.test(str);
+        }
+
+        function urlToBase64(url) {
+            return fetch(url, { mode: 'cors' })
+            .then(response => response.blob())
+            .then(blob => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            }));
+        }
+
+        const loadToCanvas = (dataURL) => {
+            fabric.Image.fromURL(dataURL, function (img) {
+            img.selectable = true;
+            img.scaleToWidth(img.width);
+            img.scaleToHeight(img.height);
+            img.left = (window.canvas.width - img.width) / 2;
+            img.top = (window.canvas.height - img.height) / 2;
+
+            window.currentProduct.selectedVariantImageUrl = dataURL;
+
+            if (!window.baseImageObj) {
+                window.baseImageObj = img;
+                window.canvas.setBackgroundImage(img, window.canvas.renderAll.bind(window.canvas));
+            }
+            });
+        };
+
+        if (isBase64(imageUrl)) {
+            loadToCanvas(imageUrl);
+        } else {
+            urlToBase64(imageUrl).then(base64 => {
+            loadToCanvas(base64);
+            }).catch(err => {
+            console.error('Failed to convert image to base64:', err);
+            });
+        }
+    };
+
+    document.getElementById('base-template-upload').addEventListener('change', function (e) {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        let designVariant;
+
+        if (window.productImageList.length === 0) {
+            // No types exist — create "Design" variant and add it as the first type
+            designVariant = { name: 'Design', values: [] };
+            window.productImageList.push(designVariant);
+        } else {
+            // Types already exist — add images to the very first variant, no matter its name
+            designVariant = window.productImageList[0];
+            if (!designVariant.values) {
+                designVariant.values = [];
+            }
+        }
+
+        let loadedCount = 0;
+
+        files.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function (f) {
+                fabric.Image.fromURL(f.target.result, function (img) {
+                    loadedCount++;
+                    designVariant.values.push({
+                        value: file.name.split('.').slice(0, -1).join('') || `design-${index + 1}`,
+                        pictureUrl: f.target.result,
+                    });
+
+                    if (loadedCount === files.length) {
+                        updateVariantSection();
+                        document.getElementById('base-template-upload').value = '';
+                    }
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+    
+    document.getElementById('align-left').addEventListener('click', function () {
+        document.getElementById('align-center').classList.remove('active');
+        document.getElementById('align-right').classList.remove('active');
+        this.classList.toggle('active');
+    });
+
+    document.getElementById('align-center').addEventListener('click', function () {
+        document.getElementById('align-left').classList.remove('active');
+        document.getElementById('align-right').classList.remove('active');
+        this.classList.toggle('active');
+    });
+
+    document.getElementById('align-right').addEventListener('click', function () {
+        document.getElementById('align-left').classList.remove('active');
+        document.getElementById('align-center').classList.remove('active');
+        this.classList.toggle('active');
+    });
+
+    document.getElementById('bold').addEventListener('click', function () {
+        this.classList.toggle('active');
+    });
+
+    document.getElementById('italic').addEventListener('click', function () {
+        this.classList.toggle('active');
+    });
+
+    document.getElementById('underline').addEventListener('click', function () {
+        this.classList.toggle('active');
+    });
+
+</script>
+
+<%# Control PopUp %>
+<script>
+
+
+    window.handleControlTypeChange = function(selectElement) {
+        const selectedValue = selectElement.value;
+        const textContainer = document.getElementById("text-container");
+        const imgContainer = document.getElementById("img-container");
+        const controlContainer = document.getElementById("control-container");
+        const minMax = document.getElementById('min-max');
+        const FieldLabel = document.getElementById('field-value');
+        const heading = document.getElementById('control-heading');
+        const inputWrapper = document.getElementById('text-input').parentElement;
+        const oldInput = document.getElementById('text-input');
+                   
+        // Reset views
+        textContainer.style.display = "none";
+        imgContainer.style.display = "none";
+        controlContainer.style.display = "block";
+        
+
+        if (selectedValue === "text" || selectedValue === "textarea" || selectedValue === "date" ||selectedValue==='number') {
+            textContainer.style.display = "block";
+
+            // Create new input element depending on type
+            let newInput;
+            if (selectedValue === "textarea") {
+                newInput = document.createElement('textarea');
+                newInput.rows = 4;
+                FieldLabel.innerText = "Notes Value:";
+                heading.innerText = 'Add Notes';
+            } else {
+                newInput = document.createElement('input');
+                newInput.type = selectedValue;
+                FieldLabel.innerText = selectedValue === "text" ? "Text Value:" :selectedValue === "number"? 'Number Value': "Date Value:";
+                heading.innerText = selectedValue === "text" ? "Add Text" : selectedValue === "number"?"Add Number":"Add Date";
+            }
+
+            // Set common attributes
+            newInput.className = "form-control mb-3";
+            newInput.id = "text-input";
+            newInput.placeholder = "Enter Value";
+
+            // Replace old input with new one
+            inputWrapper.replaceChild(newInput, oldInput);
+
+            // Show/hide min-max fields
+            minMax.style.display = (selectedValue === "text" || selectedValue === "textarea") ? "block" : "none";
+
+            // Clear image area
+            imgContainer.style.display = "none";
+            window.uploadedImages = [];
+            document.getElementById('image-preview-list').innerHTML = '';
+        } else {
+            // Clear text-related fields
+            const textInput = document.getElementById('text-input');
+            if (textInput) textInput.value = "";
+            document.getElementById('font-size').value = '20';
+            document.getElementById('font-color').value = "#000000";
+            document.getElementById("min-char").value = "1";
+            document.getElementById("max-char").value = "50";
+            document.getElementById("char-error").style.display = "none";
+
+            // Show image section
+            textContainer.style.display = "none";
+            imgContainer.style.display = "block";
+        }
+    }
+    window.openControls = function () {
+        document.getElementById('popup-overlay').style.display = 'block';
+        document.getElementById('template-control-popup').classList.add('show');
+    }
+
+    window.closeControls = function () {
+        const controlTypeSelect = document.getElementById("control-type");
+        controlTypeSelect.value = "";
+        const textContainer = document.getElementById("text-container");
+        const imgContainer = document.getElementById("img-container"); 
+
+        const controlContainer = document.getElementById("control-container");
+        const ControlLabel = document.getElementById('control-name');
+        ControlLabel.value="";
+        textContainer.style.display = "none";
+        imgContainer.style.display = "none";
+        controlContainer.style.display = "none";
+        document.getElementById('popup-overlay').style.display = 'none';
+        document.getElementById('template-control-popup').classList.remove('show');
+    }
+
+    window.addControl = function () {
+        const controlTypeSelect = document.getElementById("control-type");
+
+        const controlContainer = document.getElementById("control-container");
+        const ControlLabel = document.getElementById('control-name');
+        if (controlTypeSelect.value === "") {
+            alert("Select Control to Add")
+            return
+        }
+          if (ControlLabel.value === "") {
+            alert("Enter Control Name")
+            return
+        }
+        if (controlTypeSelect.value === "text" || controlTypeSelect.value === "textarea"|| controlTypeSelect.value === "date"|| controlTypeSelect.value === "number") {
+             addText(controlTypeSelect.value,ControlLabel.value)
+        } else if (controlTypeSelect.value === "image-swatcher"||controlTypeSelect.value === "image-drop-down"||controlTypeSelect.value === "image-radio") {
+             saveImagesToCanvas(controlTypeSelect.value,ControlLabel.value)
+        }
+        controlTypeSelect.value = "";
+        ControlLabel.value="";
+        closeControls()
+    }
+
+
+
+    window.addText = function (inputType = 'text',name="Text") {
+        let textInput = document.getElementById('text-input').value.trim();
+        const fontSize = document.getElementById('font-size').value;
+        const fontColor = document.getElementById('font-color').value;
+        const fontFamily = document.getElementById('font-family').value;
+        const min = parseInt(document.getElementById("min-char").value);
+        const max = parseInt(document.getElementById("max-char").value);
+        const stokeColor = document.getElementById('stroke-color').value;
+        const stokeWidth = parseInt(document.getElementById("stroke-width").value);
+        const textTransform = parseInt(document.getElementById("text-transform").value);
+        const error = document.getElementById("char-error");
+        let fontStyle = '';
+        if (textInput.trim() === '') {
+            if(inputType === 'date'){
+                textInput = new Date().toISOString().split('T')[0];
+            }else if(inputType === 'number'){
+                textInput = '0';
+                // textInput.toString()
+            }
+            else{
+                textInput = 'Default Text';
+            }
+           
+        } 
+        if (min > max) {
+            error.textContent = `Min characters cannot be greater than max characters.`;
+            error.style.display = "block";
+            return;
+        }
+        if (textInput.length < min || textInput.length > max) {
+            error.textContent = `Text must be between ${min} and ${max} characters.`;
+            error.style.display = "block";
+            return;
+        }
+        error.style.display = "none";
+        if (document.getElementById('bold').classList.contains('active')) {
+            fontStyle += 'bold ';
+        }
+        if (document.getElementById('italic').classList.contains('active')) {
+            fontStyle += 'italic ';
+        }
+        if (document.getElementById('underline').classList.contains('active')) {
+            fontStyle += 'underline';
+        }
+
+        const underline = document.getElementById('underline').classList.contains('active');
+
+        let textAlign = 'left';
+        if (document.getElementById('align-center')?.classList.contains('active')) {
+            textAlign = 'center';
+        } else if (document.getElementById('align-right')?.classList.contains('active')) {
+            textAlign = 'right';
+        }
+
+      
+
+        const baseImage = window.baseImageObj;
+        if (!baseImage) {
+            alert("No base image found!");
+            return;
+        }
+         const val = textTransform;
+        let newText = textInput;
+        if(inputType !== 'number'){
+        if (val === '1' || val === 1) {
+            newText = newText.toLowerCase();
+        } else if (val === '2'|| val === 2) {
+            newText = newText.replace(/\b\w/g, c => c.toUpperCase());
+        } else if (val === '3'|| val === 3) {
+            newText = newText.toUpperCase();
+        }}
+        const xPos = baseImage.left + (baseImage.width / 2) - 100;
+        const yPos = baseImage.top + (baseImage.height / 2) - 50;
+
+        const text = new fabric.Textbox(newText, {
+            left: xPos,
+            top: yPos,
+            width: 100,
+            fontSize: parseInt(fontSize),
+            fill: fontColor,
+            fontFamily: fontFamily,
+            textAlign: textAlign,
+            min: min,
+            max: max,
+            controlType:'text',
+            inputType:inputType,
+            stroke:stokeColor,
+            strokeWidth:stokeWidth,
+            textTransform:textTransform,
+            isVisible:true,
+            name:name,
+            fontWeight: fontStyle.includes('bold') ? 'bold' : 'normal',
+            fontStyle: fontStyle.includes('italic') ? 'italic' : 'normal',
+            underline: fontStyle.includes('underline'),
+        });
+
+        text.id = 'text-' + Date.now();
+        window.canvas.add(text);
+        window.currentProduct.controls.push(text);
+        renderUi()
+        document.getElementById('text-input').value = '';
+    }
+
+    window.addTextControls = function (text) {
+        const container = document.getElementById('controls-container');
+        const controlDiv = document.createElement('div');
+        controlDiv.className = 'text-controls';
+        controlDiv.id = 'text-control-' + text.id;
+
+        const controlRow = document.createElement('div');
+        controlRow.className = 'w-100 flex-display';
+        controlRow.style.flexWrap = 'wrap';
+
+        const createLabeledInput = (label, element, className = null) => {
+            const wrapper = document.createElement('label');
+            wrapper.className = `${className || ''} vertical-margin`;
+            wrapper.style.display = 'flex';
+            wrapper.style.flexDirection = 'column';
+            wrapper.style.marginRight = '20px';
+
+            const span = document.createElement('span');
+            span.innerText = label;
+            wrapper.appendChild(span);
+            if(element){
+            wrapper.appendChild(element);}
+            return wrapper;
+        };
+
+        // === Text/textarea input ===
+        let textInput;
+        if (text.inputType === 'textarea') {
+            textInput = document.createElement('textarea');
+            textInput.rows = 4;
+        } else if (text.inputType === 'date') {
+            textInput = document.createElement('input');
+            textInput.type = 'date';
+            textInput.value = text.text || new Date().toISOString().split('T')[0];
+        } else if (text.inputType === 'number') {
+            textInput = document.createElement('input');
+            textInput.type = 'number';
+            textInput.value = text.text;
+        } else {
+            textInput = document.createElement('input');
+            textInput.type = 'text';
+        }
+
+        textInput.value = text.text;
+        textInput.className = 'form-control mb-3';
+
+        const minCharInput = document.createElement('input');
+        minCharInput.type = 'number';
+        minCharInput.min = 1;
+        minCharInput.value = text.min || 1;
+        minCharInput.className = 'form-control mb-3';
+        minCharInput.style.width = '60px';
+
+        const maxCharInput = document.createElement('input');
+        maxCharInput.type = 'number';
+        maxCharInput.min = minCharInput.value;
+        maxCharInput.value = text.max || 100;
+        maxCharInput.className = 'form-control mb-3';
+        maxCharInput.style.width = '60px';
+
+        const charError = document.createElement('small');
+        charError.style.color = 'red';
+        charError.style.display = 'none';
+
+        const charCount = document.createElement('small');
+        charCount.style.display = 'block';
+        charCount.style.marginTop = '-10px';
+        charCount.style.marginBottom = '10px';
+        charCount.style.width = '100%';
+        charCount.style.textAlign = 'end';
+        charCount.style.color = '#666';
+        charCount.textContent = `${text.text.length} / ${maxCharInput.value} characters`;
+
+
+        textInput.oninput = () => {
+            if (text.inputType === 'date') {
+                charError.style.display = 'none';
+                text.set({ text: textInput.value });
+                window.canvas.renderAll();
+            } else {
+                const min = parseInt(minCharInput.value);
+                const max = parseInt(maxCharInput.value);
+                const valueLength = textInput.value.length;
+
+                if (valueLength < min || valueLength > max) {
+                    charError.innerText = `Text must be between ${min} and ${max} characters.`;
+                    charError.style.display = 'block';
+                } else {
+                    charError.style.display = 'none';
+                    const val = text.textTransform; 
+                    let newText = textInput.value;
+                    if(text.inputType !== 'number'){
+                    if (val === '1' || val === 1) {
+                        newText = newText.toLowerCase();
+                    } else if (val === '2'|| val === 2) {
+                        newText = newText.replace(/\b\w/g, c => c.toUpperCase());
+                    } else if (val === '3'|| val === 3) {
+                        newText = newText.toUpperCase();
+                    }}
+                    text.set({ text: newText });
+                    text.originalText = textInput.value; 
+                    const valueLength = textInput.value.length;
+                    charCount.textContent = `${valueLength} / ${max} characters`;
+                    window.canvas.renderAll();
+                }
+            }
+        };
+
+        textInput.onblur = () => {
+            setVisible();
+            renderUi();
+        };
+
+        minCharInput.onchange = () => {
+            const min = parseInt(minCharInput.value);
+            maxCharInput.min = min;
+            text.min = min;
+            textInput.dispatchEvent(new Event('input'));
+        };
+
+        maxCharInput.onchange = () => {
+            text.max = parseInt(maxCharInput.value);
+            textInput.dispatchEvent(new Event('input'));
+        };
+
+        // === Font Size ===
+        const fontSizeInput = document.createElement('input');
+        fontSizeInput.type = 'number';
+        fontSizeInput.value = text.fontSize || 20;
+        fontSizeInput.className = 'form-control mb-3';
+        fontSizeInput.style.width = '60px';
+        fontSizeInput.onchange = () => {
+            text.set({ fontSize: parseInt(fontSizeInput.value) });
+            window.canvas.renderAll();
+        };
+
+        // === Font Color ===
+        const fontColorInput = document.createElement('input');
+        fontColorInput.type = 'color';
+        fontColorInput.value = text.fill || '#000000';
+        fontColorInput.className = 'form-control mb-3';
+        fontColorInput.style.width = '60px';
+        fontColorInput.onchange = () => {
+            text.set({ fill: fontColorInput.value });
+            window.canvas.renderAll();
+        };
+
+        // === Font Family ===
+        const fontFamilyInput = document.createElement('select');
+        fontFamilyInput.className = 'form-control mb-3';
+        fontFamilyInput.innerHTML = `
+        <% if @fonts.present? && @fonts.any? %>
+            <% @fonts.each do |font| %>
+                <option value="<%= font.name %>"><%= font.name %></option>
+            <% end %>
+        <% else %>
+            <option value="Arial">Arial</option>
+            <option value="Verdana">Verdana</option>
+            <option value="Courier New">Courier New</option>
+        <% end %>`;
+        fontFamilyInput.value = text.fontFamily;
+        fontFamilyInput.onchange = () => {
+            text.set({ fontFamily: fontFamilyInput.value });
+            window.canvas.renderAll();
+        };
+        const fontFamilyDiv = document.createElement('div');
+        fontFamilyDiv.className = 'w-100';
+        fontFamilyDiv.appendChild(createLabeledInput('Font Family', fontFamilyInput));
+
+        // === Font Styles (Bold, Italic, Underline) ===
+        const boldButton = document.createElement('button');
+        boldButton.innerText = 'B';
+        boldButton.className = 'style-btn';
+        if (text.fontWeight === 'bold') boldButton.classList.add('active');
+        boldButton.onclick = () => {
+            const bold = text.fontWeight === 'bold';
+            text.set({ fontWeight: bold ? 'normal' : 'bold' });
+            boldButton.classList.toggle('active', !bold);
+            window.canvas.renderAll();
+        };
+
+        const italicButton = document.createElement('button');
+        italicButton.innerText = 'I';
+        italicButton.className = 'style-btn';
+        if (text.fontStyle === 'italic') italicButton.classList.add('active');
+        italicButton.onclick = () => {
+            const italic = text.fontStyle === 'italic';
+            text.set({ fontStyle: italic ? 'normal' : 'italic' });
+            italicButton.classList.toggle('active', !italic);
+            window.canvas.renderAll();
+        };
+
+        const underlineButton = document.createElement('button');
+        underlineButton.innerText = 'U';
+        underlineButton.className = 'style-btn';
+        if (text.underline) underlineButton.classList.add('active');
+        underlineButton.onclick = () => {
+            const underline = text.underline;
+            text.set({ underline: !underline });
+            underlineButton.classList.toggle('active', !underline);
+            window.canvas.renderAll();
+        };
+
+        function createAlignButton(label, align) {
+            const btn = document.createElement('button');
+            btn.innerText = label;
+            btn.className = 'style-btn';
+            btn.onclick = () => {
+                text.set({ textAlign: align });
+                updateAlignButtons(align);
+                window.canvas.renderAll();
+            };
+            return btn;
+        }
+
+        function updateAlignButtons(active) {
+            [alignLeftBtn, alignCenterBtn, alignRightBtn].forEach((btn, i) => {
+                btn.classList.toggle('active', ['left', 'center', 'right'][i] === active);
+            });
+        }
+
+        const alignLeftBtn = createAlignButton('Left', 'left');
+        const alignCenterBtn = createAlignButton('Center', 'center');
+        const alignRightBtn = createAlignButton('Right', 'right');
+
+        updateAlignButtons(text.textAlign || 'left');
+
+        controlRow.appendChild(createLabeledInput(
+            text.inputType === 'textarea' ? 'Notes' :
+            text.inputType === 'date' ? 'Date' :
+            text.inputType === 'number' ? 'Number' : 'Text',
+            textInput, 'w-100'
+        ));
+
+        if (text.inputType !== 'date' && text.inputType !== 'number') {
+            controlRow.appendChild(createLabeledInput('Min Chars', minCharInput));
+            controlRow.appendChild(createLabeledInput('Max Chars', maxCharInput));
+              controlRow.appendChild(charCount);
+            controlRow.appendChild(charError);
+        }
+
+        controlRow.appendChild(createLabeledInput('Font Size', fontSizeInput));
+        controlRow.appendChild(createLabeledInput('Font Color', fontColorInput));
+        controlRow.appendChild(fontFamilyDiv);
+
+        const styleLabel = document.createElement('label');
+        styleLabel.className = 'vertical-margin';
+        styleLabel.innerText = 'Styles';
+
+        const styleRow = document.createElement('div');
+        styleRow.className = 'd-flex';
+        styleRow.style.gap = '4px';
+        styleRow.style.flexWrap = 'wrap';
+        styleRow.appendChild(createLabeledInput('', boldButton));
+        styleRow.appendChild(createLabeledInput('', italicButton));
+        styleRow.appendChild(createLabeledInput('', underlineButton));
+        styleRow.appendChild(createLabeledInput('', alignLeftBtn));
+        styleRow.appendChild(createLabeledInput('', alignCenterBtn));
+        styleRow.appendChild(createLabeledInput('', alignRightBtn));
+        styleRow.appendChild(styleLabel);
+        controlRow.appendChild(styleRow);
+
+        const createNumberInput = (label, value, onChange, fieldKey) => {
+            const wrapper = document.createElement('label');
+            wrapper.className = 'vertical-margin';
+
+            const span = document.createElement('span');
+            span.textContent = label;
+
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.value = value;
+            input.className = 'form-control mb-3';
+            input.style.width = '60px';
+            input.style.fontSize = '12px';
+            input.setAttribute('data-object-id', text.id);
+            input.setAttribute('data-field', fieldKey);
+            input.onchange = (e) => {
+                onChange(parseFloat(e.target.value));
+                text.setCoords();
+                window.canvas.renderAll();
+            };
+
+            wrapper.appendChild(span);
+            wrapper.appendChild(input);
+            return wrapper;
+        };
+        // === Stroke Color ===
+        const strokeColorInput = document.createElement('input');
+        strokeColorInput.type = 'color';
+        strokeColorInput.value = text.stroke || '#000000';
+        strokeColorInput.className = 'form-control mb-3';
+        strokeColorInput.style.width = '60px';
+        strokeColorInput.onchange = () => {
+            text.set({ stroke: strokeColorInput.value });
+            window.canvas.renderAll();
+        };
+
+        // === Stroke Width ===
+        const strokeWidthInput = document.createElement('input');
+        strokeWidthInput.type = 'number';
+        strokeWidthInput.min = 0;
+        strokeWidthInput.step = 0.5;
+        strokeWidthInput.value = text.strokeWidth || 0;
+        strokeWidthInput.className = 'form-control mb-3';
+        strokeWidthInput.style.width = '60px';
+        strokeWidthInput.onchange = () => {
+            text.set({ strokeWidth: parseFloat(strokeWidthInput.value) });
+            window.canvas.renderAll();
+        };
+
+        // Append to controlRow
+        controlRow.appendChild(createLabeledInput('Stroke Color', strokeColorInput));
+        controlRow.appendChild(createLabeledInput('Stroke Width', strokeWidthInput));
+                // === Text Transform Control ===
+        const transformSelect = document.createElement('select');
+        transformSelect.className = 'form-control mb-3';
+        ['As typed', 'ag – lowercase', 'Ag – Capitalize', 'AG – UPPERCASE'].forEach((label, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = label;
+            transformSelect.appendChild(option);
+        });
+        transformSelect.onchange = () => {
+            const val = transformSelect.value;
+            let newText = text.text || '';
+             if(text.inputType !== 'number'){
+            if (val === '1') {
+                newText = newText.toLowerCase();
+            } else if (val === '2') {
+                newText = newText.replace(/\b\w/g, c => c.toUpperCase());
+            } else if (val === '3') {
+                newText = newText.toUpperCase();
+            }}
+            text.set({ text: newText });
+             text.textTransform = val;
+            window.canvas.renderAll();
+        };
+
+        transformSelect.value = text.textTransform;
+        controlRow.appendChild(createLabeledInput('Text Format', transformSelect));
+        const scaleDiv = document.createElement('div');
+        scaleDiv.className = 'd-flex';
+        scaleDiv.style.gap = '5px';
+        scaleDiv.appendChild(createNumberInput('X', text.left, val => text.set('left', val), 'left'));
+        scaleDiv.appendChild(createNumberInput('Y', text.top, val => text.set('top', val), 'top'));
+        scaleDiv.appendChild(createNumberInput('Scale X', text.scaleX, val => text.set('scaleX', val), 'scaleX'));
+        scaleDiv.appendChild(createNumberInput('Scale Y', text.scaleY, val => text.set('scaleY', val), 'scaleY'));
+        scaleDiv.appendChild(createNumberInput('Rotate', text.angle || 0, val => text.set('angle', val), 'angle'));
+
+        const removeButton = document.createElement('button');
+        removeButton.innerText = 'Remove Text';
+        removeButton.className = 'btn btn-sm btn-outline-danger w-100 mt-2 d-block';
+        removeButton.onclick = () => {
+            window.canvas.remove(text);
+            window.textObjects = window.textObjects.filter(t => t !== text);
+            window.currentProduct.controls = window.currentProduct.controls.filter(t => t !== text);
+            container.removeChild(controlDiv);
+            renderUi()
+        };
+
+        controlRow.appendChild(scaleDiv);
+        controlRow.appendChild(removeButton);
+        controlDiv.appendChild(controlRow);
+        container.appendChild(createLabeledInput(text.name,null));
+        container.appendChild(controlDiv);
+    };
+
+
+
+    window.renderUi = function () {
+        const container = document.getElementById('controls-container');
+        container.innerHTML = '';
+        (window.currentProduct.controls || []).filter(ctrl=> ctrl.isVisible !== false).forEach((control, index) => {
+            if (control.controlType === 'image') {
+                addImageControls(control,index)
+            } else if (control.type === 'textbox' || control.controlType === 'text') {
+               
+                addTextControls(control); 
+            } else {
+                console.warn("Unknown control type:", control);
+            }
+        });
+    }
+
+    window.addImageControls = function (image, imageIndex) {
+        const container = document.getElementById('controls-container');
+        const controlDiv = document.createElement('div');
+        controlDiv.className = 'image-controls';
+        controlDiv.id = 'image-control-' + image.mainImage.id;
+        const imageSection = document.createElement('div');
+        imageSection.style.marginBottom = '20px';
+        const optionsContainer = document.createElement('div');
+        optionsContainer.className = 'options-container';
+        optionsContainer.style.display = 'flex';
+        optionsContainer.style.flexWrap = 'wrap';
+        if (image.inputType === 'image-drop-down') {
+            const dropdownWrapper = document.createElement('div');
+            dropdownWrapper.className = 'custom-dropdown mb-2';
+            dropdownWrapper.style.position = 'relative';
+            dropdownWrapper.style.width = '100%';
+            const selectedDiv = document.createElement('div');
+            selectedDiv.className = 'selected-option';
+            selectedDiv.style.border = '1px solid #ccc';
+            selectedDiv.style.padding = '5px';
+            selectedDiv.style.cursor = 'pointer';
+            selectedDiv.style.display = 'flex';
+            selectedDiv.style.alignItems = 'center';
+            const selectedImg = document.createElement('img');
+            selectedImg.style.width = '50px';
+            selectedImg.style.height = '50px';
+            selectedImg.style.objectFit = 'contain';
+            selectedImg.style.marginRight = '10px';
+            selectedImg.style.border = '2px solid';
+            selectedImg.style.borderRadius = '5px';
+            const selectedColor = document.createElement('span');
+            selectedColor.style.display = 'inline-block';
+            selectedColor.style.width = '50px';
+            selectedColor.style.height = '50px';
+
+            selectedColor.style.border = '1px solid #ccc';
+            selectedColor.style.marginRight = '10px';
+            const selectedText = document.createElement('span');
+            const selectedIndex = image.options.findIndex(opt => opt.id === image.mainImage.id);
+            
+            const displayIndex = selectedIndex >= 0 ? selectedIndex : 0;
+            const selectedOption = image.options[displayIndex];
+            selectedImg.src = selectedOption.src || selectedOption.getSrc();
+            selectedColor.style.backgroundColor = selectedOption.color || 'transparent';
+            selectedText.textContent = selectedOption.name || "";
+            //    selectedDiv.appendChild(selectedImg);
+            if (image.showColor === true) {
+            selectedDiv.appendChild(selectedColor);
+            } else {
+            selectedDiv.appendChild(selectedImg);
+            }
+            selectedDiv.appendChild(selectedText);
+            const dropdownList = document.createElement('div');
+            dropdownList.className = 'dropdown-options';
+            dropdownList.style.position = 'absolute';
+            dropdownList.style.top = '100%';
+            dropdownList.style.left = '0';
+            dropdownList.style.width = '100%';
+            dropdownList.style.border = '1px solid #ccc';
+            dropdownList.style.backgroundColor = '#fff';
+            dropdownList.style.zIndex = '10';
+            dropdownList.style.display = 'none';
+            dropdownList.style.maxHeight = '200px';
+            dropdownList.style.overflowY = 'auto';
+            image.options.forEach((option, index) => {
+            const optionItem = document.createElement('div');
+            optionItem.style.display = 'flex';
+            optionItem.style.alignItems = 'center';
+            optionItem.style.padding = '5px';
+            optionItem.style.cursor = 'pointer';
+            optionItem.onmouseenter = () => optionItem.style.backgroundColor = '#eee';
+            optionItem.onmouseleave = () => optionItem.style.backgroundColor = '#fff';
+            const optionImg = document.createElement('img');
+            optionImg.src = option.src || option.getSrc();
+            optionImg.style.width = '50px';
+            optionImg.style.height = '50px';
+            optionImg.style.objectFit = 'contain';
+            optionImg.style.marginRight = '10px';
+            const optionColor = document.createElement('span');
+            optionColor.style.display = 'inline-block';
+            optionColor.style.width = '50px';
+            optionColor.style.height = '50px';
+            optionColor.style.backgroundColor = option.color || 'transparent';
+            optionColor.style.border = '1px solid #ccc';
+            // optionColor.style.marginRight = '10px';
+            const optionText = document.createElement('span');
+            optionText.textContent = option.name || "";
+            if (image.showColor === true) {
+                optionItem.appendChild(optionColor);
+            } else {
+                optionItem.appendChild(optionImg);
+            }
+
+            optionItem.appendChild(optionText);
+            optionItem.onclick = () => {
+                selectedImg.src = optionImg.src;
+                selectedText.textContent = option.name || "";
+                selectedColor.style.backgroundColor = option.color || 'transparent';
+                dropdownList.style.display = 'none';
+                const targetObj = window.canvas.getObjects().find(obj => obj.id === image.mainImage.id);
+                if (targetObj) {
+                const { left, top, scaleX, scaleY, angle, flipX, flipY } = targetObj;
+                fabric.Image.fromURL(option.src || option.getSrc(), function (newImg) {
+                    newImg.id = option.id;
+                    newImg.set({ left, top, scaleX, scaleY, angle, flipX, flipY });
+                    const idx = window.canvas.getObjects().indexOf(targetObj);
+                    window.canvas.remove(targetObj);
+                    window.canvas.insertAt(newImg, idx);
+                    image.mainImage = newImg;
+                    window.currentImageObj = newImg;
+                    window.canvas.renderAll();
+                    setVisible()
+                    renderUi();
+                });
+                }
+            };
+            dropdownList.appendChild(optionItem);
+            });
+            selectedDiv.onclick = () => {
+            dropdownList.style.display = dropdownList.style.display === 'none' ? 'block' : 'none';
+            };
+            dropdownWrapper.appendChild(selectedDiv);
+            dropdownWrapper.appendChild(dropdownList);
+            optionsContainer.appendChild(dropdownWrapper);
+        } else if (image.inputType === 'image-radio') {
+            image.options.forEach((option, index) => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'option-image-container';
+            optionDiv.style.display = 'flex';            
+            optionDiv.style.alignItems = 'center';       
+            optionDiv.style.marginRight = '10px';
+            optionDiv.style.gap = '2px';
+            optionDiv.style.width = 'fit-content';              
+            optionDiv.style.marginBottom = '10px';
+
+            const optionImage = document.createElement('img');
+
+            optionImage.src = option?.src || option?.getSrc() || 'placeholder.jpg';
+            optionImage.alt = 'Option Image';
+            optionImage.style.width = '80px';
+            optionImage.style.cursor = 'pointer';
+            optionImage.onclick = () => {
+                const targetObj = window.canvas.getObjects().find(obj => obj.id === image.mainImage.id);
+                if (targetObj) {
+                const { left, top, scaleX, scaleY, angle, flipX, flipY } = targetObj;
+                fabric.Image.fromURL(option?.src || option?.getSrc(), function (newImg) {
+                    newImg.id = option.id;
+                    newImg.set({ left, top, scaleX, scaleY, angle, flipX, flipY });
+                    const idx = window.canvas.getObjects().indexOf(targetObj);
+                    window.canvas.remove(targetObj);
+                    window.canvas.insertAt(newImg, idx);
+                    image.mainImage = newImg;
+                    window.currentImageObj = newImg;
+                    window.canvas.renderAll();
+                    setVisible();
+                    renderUi();
+                });
+                }
+            };
+            const optionColor = document.createElement('span');
+            optionColor.style.display = 'inline-block';
+            optionColor.style.width = '50px';
+            optionColor.style.height = '50px';
+            optionColor.style.backgroundColor = option.color || 'transparent';
+            optionColor.style.border = '1px solid #ccc';
+            // optionColor.style.marginRight = '10px';
+            optionColor.onclick = () => {
+                const targetObj = window.canvas.getObjects().find(obj => obj.id === image.mainImage.id);
+                if (targetObj) {
+                const { left, top, scaleX, scaleY, angle, flipX, flipY } = targetObj;
+                fabric.Image.fromURL(option?.src || option?.getSrc(), function (newImg) {
+                    newImg.id = option.id;
+                    newImg.set({ left, top, scaleX, scaleY, angle, flipX, flipY });
+                    const idx = window.canvas.getObjects().indexOf(targetObj);
+                    window.canvas.remove(targetObj);
+                    window.canvas.insertAt(newImg, idx);
+                    image.mainImage = newImg;
+                    window.currentImageObj = newImg;
+                    window.canvas.renderAll();
+                    setVisible();
+                    renderUi();
+                });
+                }
+            };
+
+            const nameInput = document.createElement('span');
+            if (option.name) {
+                nameInput.style.maxWidth = '100px';
+                nameInput.style.width = 'fit-content';
+                nameInput.style.margin = 'auto';
+                nameInput.style.padding = '5px';
+                nameInput.innerText = option.name || '';
+            }
+           
+
+
+            // Delete button
+            const deleteOptionBtn = document.createElement('button');
+            deleteOptionBtn.textContent = '❌';
+            deleteOptionBtn.className = 'btn btn-sm delete-icon d-block';
+            deleteOptionBtn.style.marginLeft = 'auto';   // push button to the right
+            deleteOptionBtn.style.cursor = 'pointer';
+            deleteOptionBtn.style.border = 'none';
+            deleteOptionBtn.style.background = 'transparent';
+            deleteOptionBtn.style.color = '#c00';
+            deleteOptionBtn.title = 'Delete option';
+
+            deleteOptionBtn.onclick = () => {
+                const isMain = (option.id === image.mainImage?.id);
+                let transform = null;
+                if (isMain) {
+                const canvasImage = window.canvas.getObjects().find(obj => obj.id === option.id);
+                if (canvasImage) {
+                    transform = {
+                    left: canvasImage.left,
+                    top: canvasImage.top,
+                    scaleX: canvasImage.scaleX,
+                    scaleY: canvasImage.scaleY,
+                    angle: canvasImage.angle,
+                    flipX: canvasImage.flipX,
+                    flipY: canvasImage.flipY
+                    };
+                    window.canvas.remove(canvasImage);
+                }
+                }
+                image.options.splice(index, 1);
+                if (image.options.length === 0) {
+                const obj = window.canvas.getObjects().find(obj => obj.id === image.mainImage?.id);
+                if (obj) {
+                    window.canvas.remove(obj);
+                }
+                window.currentProduct.controls.splice(imageIndex, 1);
+                renderUi();
+                return;
+                }
+                if (isMain) {
+                const replacement = image.options[0];
+                fabric.Image.fromURL(replacement?.src || replacement?.getSrc(), function (newImg) {
+                    newImg.id = replacement.id;
+                    if (transform) {
+                    newImg.set({
+                        ...transform,
+                        selectable: true,
+                        hasControls: true,
+                        hasBorders: true
+                    });
+                    }
+                    window.canvas.add(newImg);
+                    image.mainImage = newImg;
+                    window.currentImageObj = newImg;
+                    window.canvas.renderAll();
+                    renderUi();
+                });
+                } else {
+                renderUi();
+                }
+            };
+            if (image.showColor === true) {
+                optionDiv.appendChild(optionColor);
+            } else {
+                optionDiv.appendChild(optionImage);
+            }
+            // optionDiv.appendChild(optionImage);
+             if (option.name){
+            optionDiv.appendChild(nameInput);
+            }
+            optionDiv.appendChild(deleteOptionBtn);
+            optionsContainer.appendChild(optionDiv);
+            });
+        } else {
+            image.options.forEach((option, index) => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'option-image-container';
+            optionDiv.style.display = 'inline-block';
+            optionDiv.style.marginRight = '10px';
+            const optionImage = document.createElement('img');
+            optionImage.src = option?.src || option?.getSrc() || 'placeholder.jpg';
+            optionImage.alt = 'Option Image';
+            optionImage.style.width = '80px';
+            optionImage.style.cursor = 'pointer';
+            optionImage.onclick = () => {
+                const targetObj = window.canvas.getObjects().find(obj => obj.id === image.mainImage.id);
+                if (targetObj) {
+                const { left, top, scaleX, scaleY, angle, flipX, flipY } = targetObj;
+                fabric.Image.fromURL(option?.src || option?.getSrc(), function (newImg) {
+                    newImg.id = option.id;
+                    newImg.set({ left, top, scaleX, scaleY, angle, flipX, flipY });
+                    const idx = window.canvas.getObjects().indexOf(targetObj);
+                    window.canvas.remove(targetObj);
+                    window.canvas.insertAt(newImg, idx);
+                    image.mainImage = newImg;
+                    window.currentImageObj = newImg;
+                    window.canvas.renderAll();
+                    setVisible()
+                    renderUi();
+                });
+                }
+            };
+            const optionColor = document.createElement('span');
+            optionColor.style.display = 'inline-block';
+              optionColor.style.width = '55px';
+            optionColor.style.height = '100%';
+            optionColor.style.minHeight = '55px';
+            optionColor.style.backgroundColor = option.color || 'transparent';
+            optionColor.style.border = '1px solid #ccc';
+            // optionColor.style.marginRight = '10px';
+            optionColor.onclick = () => {
+                const targetObj = window.canvas.getObjects().find(obj => obj.id === image.mainImage.id);
+                if (targetObj) {
+                const { left, top, scaleX, scaleY, angle, flipX, flipY } = targetObj;
+                fabric.Image.fromURL(option?.src || option?.getSrc(), function (newImg) {
+                    newImg.id = option.id;
+                    newImg.set({ left, top, scaleX, scaleY, angle, flipX, flipY });
+                    const idx = window.canvas.getObjects().indexOf(targetObj);
+                    window.canvas.remove(targetObj);
+                    window.canvas.insertAt(newImg, idx);
+                    image.mainImage = newImg;
+                    window.currentImageObj = newImg;
+                    window.canvas.renderAll();
+                    setVisible()
+                    renderUi();
+                });
+                }
+            };
+            //    const optionText = document.createElement('span');
+            //     optionText.textContent = option.name||"";
+
+            const deleteOptionBtn = document.createElement('button');
+            deleteOptionBtn.textContent = '❌';
+            deleteOptionBtn.className = 'btn btn-sm delete-icon d-block';
+            deleteOptionBtn.style.marginTop = '5px';
+            deleteOptionBtn.onclick = () => {
+                const isMain = (option.id === image.mainImage?.id);
+                let transform = null;
+                if (isMain) {
+                const canvasImage = window.canvas.getObjects().find(obj => obj.id === option.id);
+                if (canvasImage) {
+                    transform = {
+                    left: canvasImage.left,
+                    top: canvasImage.top,
+                    scaleX: canvasImage.scaleX,
+                    scaleY: canvasImage.scaleY,
+                    angle: canvasImage.angle,
+                    flipX: canvasImage.flipX,
+                    flipY: canvasImage.flipY
+                    };
+                    window.canvas.remove(canvasImage);
+                }
+                }
+                image.options.splice(index, 1);
+                if (image.options.length === 0) {
+                const obj = window.canvas.getObjects().find(obj => obj.id === image.mainImage?.id);
+                if (obj) {
+                    window.canvas.remove(obj);
+                }
+                window.currentProduct.controls.splice(imageIndex, 1);
+                renderUi();
+                return;
+                }
+                if (isMain) {
+                const replacement = image.options[0];
+                fabric.Image.fromURL(replacement?.src || replacement?.getSrc(), function (newImg) {
+                    newImg.id = replacement.id;
+                    if (transform) {
+                    newImg.set({
+                        ...transform,
+                        selectable: true,
+                        hasControls: true,
+                        hasBorders: true
+                    });
+                    }
+                    window.canvas.add(newImg);
+                    image.mainImage = newImg;
+                    window.currentImageObj = newImg;
+                    window.canvas.renderAll();
+                    renderUi();
+                });
+                } else {
+                renderUi();
+                }
+            };
+            //    optionDiv.appendChild(optionImage);
+            if (image.showColor === true) {
+                optionDiv.appendChild(optionColor);
+            } else {
+                optionDiv.appendChild(optionImage);
+            }
+            optionDiv.appendChild(deleteOptionBtn);
+            optionsContainer.appendChild(optionDiv);
+            });
+        }
+        imageSection.appendChild(optionsContainer);
+        const controlPanel = document.createElement('div');
+        controlPanel.className = 'scale-position-parent';
+        const mainImage = image.mainImage;
+        if (mainImage) {
+            controlPanel.appendChild(createLabeledInput('X', mainImage.left, val => mainImage.set('left', val), 'left', mainImage.id));
+            controlPanel.appendChild(createLabeledInput('Y', mainImage.top, val => mainImage.set('top', val), 'top', mainImage.id));
+            controlPanel.appendChild(createLabeledInput('ScaleX', mainImage.scaleX, val => mainImage.set('scaleX', val), 'scaleX', mainImage.id));
+            controlPanel.appendChild(createLabeledInput('ScaleY', mainImage.scaleY, val => mainImage.set('scaleY', val), 'scaleY', mainImage.id));
+            controlPanel.appendChild(createLabeledInput('Rotate', mainImage.angle, val => mainImage.set('angle', val), 'angle', mainImage.id));
+            
+        }
+        imageSection.appendChild(controlPanel);
+        const buttonDiv = document.createElement("div");
+        buttonDiv.className = "btn-controls justify-content-between";
+        const addOptionButton = document.createElement('button');
+        addOptionButton.textContent = 'Add Option';
+        addOptionButton.className = 'mt-2 btn btn-sm btn-primary with-tip d-block';
+        addOptionButton.onclick = () => {
+            handleOptionImageUpload(image);
+        };
+        const loadGalleryButton = document.createElement('button');
+        loadGalleryButton.textContent = 'Load from Gallery';
+        loadGalleryButton.className = 'mt-2 btn btn-sm btn-secondary with-tip d-block';
+        loadGalleryButton.onclick = () => {
+            document.getElementById('popup-overlay').style.display = 'block';
+            document.getElementById('gallery-popup').classList.add('show');
+            loadGalleryPopUp(true, image);
+        };
+
+        const deleteSectionBtn = document.createElement('button');
+        deleteSectionBtn.textContent = '🗑️ Delete All Images';
+        deleteSectionBtn.className = 'btn btn-sm btn-outline-danger mt-2 d-block';
+        deleteSectionBtn.onclick = () => {
+            const allIds = [image.mainImage.id, ...image.options.map(opt => opt.id)];
+            window.canvas.getObjects().forEach(obj => {
+            if (allIds.includes(obj.id)) window.canvas.remove(obj);
+            });
+            window.currentProduct.controls.splice(imageIndex, 1);
+            renderUi();
+        };
+        buttonDiv.appendChild(addOptionButton);
+        buttonDiv.appendChild(loadGalleryButton);
+        buttonDiv.appendChild(deleteSectionBtn);
+        imageSection.appendChild(buttonDiv);
+        const editButtonDiv = document.createElement('div')
+        editButtonDiv.style.width = '100%';
+        editButtonDiv.style.display = 'flex';
+        editButtonDiv.style.justifyContent = 'end';
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '🗑️ Edit Control';
+        editBtn.className = 'mt-2 btn btn-sm btn-secondary with-tip d-block';
+        editBtn.onclick = () => {
+            openDetail(image, imageIndex)
+        };
+        editButtonDiv.appendChild(editBtn);
+        controlDiv.appendChild(editButtonDiv);
+        controlDiv.appendChild(imageSection);
+        const control_label = document.createElement('label');
+        control_label.style.display = 'flex';
+        control_label.style.flexDirection = 'column';
+        control_label.className = 'vertical-margin';
+        const span_label = document.createElement('span');
+        span_label.textContent = image.name || 'IMAGE'
+        control_label.appendChild(span_label);
+        container.appendChild(control_label);
+        
+        container.appendChild(controlDiv);
+        function createLabeledInput(label, value, onChange, fieldKey, objectId) {
+            const wrapper = document.createElement('label');
+            wrapper.style.display = 'flex';
+            wrapper.style.flexDirection = 'column';
+            wrapper.className = 'vertical-margin';
+            const span = document.createElement('span');
+            span.textContent = label;
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.value = value;
+            input.className = 'scale-input form-control mb-3';
+            input.setAttribute('data-object-id', objectId);
+            input.setAttribute('data-field', fieldKey);
+            input.onchange = (e) => {
+            onChange(parseFloat(e.target.value));
+            if (window.canvas && window.canvas.renderAll) {
+                window.canvas.renderAll();
+            }
+            };
+            wrapper.appendChild(span);
+            wrapper.appendChild(input);
+            return wrapper;
+        }
+    };
+
+
+
+    window.syncInputsFromCanvas = function (obj) {
+        const fields = ['left', 'top', 'scaleX', 'scaleY', 'angle', 'text'];
+        fields.forEach((field) => {
+            const input = document.querySelector(`input[data-object-id="${obj.id}"][data-field="${field}"]`);
+            if (input) {
+                if (field === 'text') {
+                    const min = parseInt(input.getAttribute('data-min')) || 0;
+                    const max = parseInt(input.getAttribute('data-max')) || 9999;
+                    const errorElement = document.querySelector(`small[data-error-for="${obj.id}"]`);
+                    if (obj.text.length < min || obj.text.length > max) {
+                        input.classList.add('error');
+                        if (errorElement) {
+                            errorElement.style.display = 'inline';
+                            errorElement.textContent = `Text must be between ${min} and ${max} characters.`;
+                        }
+                    } else {
+                        input.classList.remove('error');
+                        if (errorElement) errorElement.style.display = 'none';
+                    }
+                    input.value = obj.text;
+                } else {
+                    input.value = parseFloat(obj[field]).toFixed(2);
+                }
+            }
+        });
+    };
+
+
+    window.canvas.on('object:moving', function (e) {
+        const obj = e.target;
+        if (!['image', 'textbox', 'text'].includes(obj.type)) return;
+
+        if (['image', 'textbox', 'text'].includes(obj.type) && window.baseImageObj) {
+            const base = window.baseImageObj;
+            const baseLeft = base.left;
+            const baseTop = base.top;
+            const baseRight = base.left + base.getScaledWidth();
+            const baseBottom = base.top + base.getScaledHeight();
+
+            const objWidth = obj.getScaledWidth();
+            const objHeight = obj.getScaledHeight();
+
+            if (obj.left < baseLeft) obj.left = baseLeft;
+            if (obj.top < baseTop) obj.top = baseTop;
+            if (obj.left + objWidth > baseRight) obj.left = baseRight - objWidth;
+            if (obj.top + objHeight > baseBottom) obj.top = baseBottom - objHeight;
+        }
+
+        syncInputsFromCanvas(obj);
+    });
+
+    window.canvas.on('object:scaling', (e) => {
+        if (!['image', 'textbox', 'text'].includes(e.target.type)) return;
+        syncInputsFromCanvas(e.target);
+    });
+
+    window.canvas.on('object:rotating', (e) => {
+        if (!['image', 'textbox', 'text'].includes(e.target.type)) return;
+        syncInputsFromCanvas(e.target);
+    });
+
+
+
+
+    function generateId() {
+        return `img-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    }
+    window.openGallery = function () {
+        document.getElementById('popup-overlay').style.display = 'block';
+        document.getElementById('gallery-popup').classList.add('show');
+        loadGalleryPopUp()
+    }
+
+    window.closeGallery = function () {
+        document.getElementById('popup-overlay').style.display = 'none';
+        document.getElementById('gallery-popup').classList.remove('show');
+    }
+
+    window.loadGalleryPopUp = function (option = false, mainImage = null) {
+        fetch("/admin/gallery_images")
+            .then((response) => {
+                if (!response.ok) throw new Error("Network response was not ok");
+                return response.json();
+            })
+            .then((images) => {
+                const gallerySection = document.getElementById("gallery-section-1");
+                const optionSection = document.getElementById("option-preview");
+                gallerySection.innerHTML = "";
+                optionSection.innerHTML = "";
+                gallerySection.style.display = "block";
+
+                const selectedImages = new Set();
+
+                function renderOptionPreview() {
+                    optionSection.innerHTML = "";
+                    Array.from(selectedImages).forEach((imgUrl) => {
+                        const id = generateId();
+                        const imgContainer = document.createElement("div");
+                        imgContainer.id = id;
+                        imgContainer.style.position = "relative";
+                        imgContainer.style.display = "inline-block";
+                        imgContainer.style.margin = "5px";
+
+                        const imgEl = document.createElement("img");
+                        imgEl.src = imgUrl;
+                        imgEl.style.maxWidth = "100px";
+                        imgEl.style.maxHeight = "100px";
+                        imgEl.style.border = "1px solid #ccc";
+                        imgEl.style.display = "block";
+
+                        const delBtn = document.createElement("button");
+                        delBtn.textContent = "❌";
+                        delBtn.className = "btn btn-sm delete-icon d-block";
+                        delBtn.style.position = "absolute";
+                        delBtn.style.top = "2px";
+                        delBtn.style.right = "2px";
+                        delBtn.style.background = "rgba(255,255,255,0.8)";
+                        delBtn.style.border = "none";
+                        delBtn.style.cursor = "pointer";
+                        delBtn.onclick = () => {
+                            selectedImages.delete(imgUrl);
+                            renderOptionPreview();
+
+                            // Update gallery selection border
+                            document.querySelectorAll("#gallery-section-1 img").forEach((img) => {
+                                if (img.src.endsWith(imgUrl)) {
+                                    img.style.border = "3px solid transparent";
+                                }
+                            });
+                        };
+
+                        imgContainer.appendChild(imgEl);
+                        imgContainer.appendChild(delBtn);
+                        optionSection.appendChild(imgContainer);
+                    });
+                    optionSection.appendChild(document.createElement("hr"));
+                }
+
+                images.forEach((image) => {
+                    const img = document.createElement("img");
+                    img.src = image.url;
+                    img.style.width = "100px";
+                    img.style.height = "100px";
+                    img.style.margin = "5px";
+                    img.style.cursor = "pointer";
+                    img.style.border = "3px solid transparent";
+                    img.style.objectFit = "cover";
+
+                    img.onclick = () => {
+                        if (selectedImages.has(image.url)) {
+                            selectedImages.delete(image.url);
+                            img.style.border = "3px solid transparent";
+                        } else {
+                            selectedImages.add(image.url);
+                            img.style.border = "3px solid #007bff";
+                        }
+
+                        if (option === true) {
+                            renderOptionPreview();
+                        }
+                    };
+
+                    gallerySection.appendChild(img);
+                });
+
+                const doneBtn = document.createElement("button");
+                doneBtn.textContent = "Done";
+                doneBtn.style.display = "block";
+                doneBtn.style.marginTop = "10px";
+                doneBtn.className = "btn btn-primary";
+                doneBtn.onclick = () => {
+                    const selected = Array.from(selectedImages);
+
+                    // Case 1: Add as main images (non-option)
+                    if (option === false) {
+                        const previewList = document.getElementById("image-preview-list");
+                        selected.forEach((imgUrl,index) => {
+                            const id = generateId();
+                            const imgContainer = document.createElement("div");
+                            imgContainer.id = id;
+                            imgContainer.style.position = "relative";
+                            imgContainer.style.display = "inline-block";
+                            imgContainer.style.margin = "5px";
+
+                            window.uploadedImages.push({ id, dataURL: imgUrl });
+
+                            imgContainer.innerHTML = `
+                                <img src="${imgUrl}" style="max-width: 100px; max-height: 100px; border: 1px solid #ccc;" />
+                                <button onclick="removeUploadedImage('${id}')" 
+                                    class='btn btn-sm delete-icon d-block' 
+                                    style="position: absolute; top: 2px; right: 2px; background: rgba(255,255,255,0.8); border:none; cursor:pointer;">❌</button>
+                            `;
+                            previewList.appendChild(imgContainer);
+                        });
+                    }
+
+                    // Case 2: Add as image options
+                    else if (mainImage && typeof loadImageToFabric === 'function') {
+                        selected.forEach((imgUrl) => {
+                            loadImageToFabric(imgUrl, (optionImg) => {
+                                optionImg.set({
+                                    left: mainImage.mainImage.left,
+                                    top: mainImage.mainImage.top,
+                                    scaleX: mainImage.mainImage.scaleX,
+                                    scaleY: mainImage.mainImage.scaleY,
+                                    angle: mainImage.mainImage.angle,
+                                    flipX: mainImage.mainImage.flipX,
+                                    flipY: mainImage.mainImage.flipY,
+                                    id: generateId(),
+                                });
+                                mainImage.options.push(optionImg);
+
+                            renderUi()
+                            });
+                        });
+                    }
+
+                    closeGallery();
+                };
+
+                gallerySection.appendChild(doneBtn);
+            })
+            .catch((error) => {
+                console.error("Failed to load gallery images:", error);
+                alert("Failed to load gallery images.");
+            });
+    };
+
+
+    window.handleOptionImageUpload = function (mainImage, optionsContainer, imageSource = null) {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.style.display = 'none';
+        fileInput.onchange = function () {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                const dataUrl = event.target.result;
+
+                loadImageToFabric(dataUrl, (optionImg) => {
+                    if (!mainImage.mainImage) {
+                        alert("Main image not found on canvas.");
+                        return;
+                    }
+
+                    const transform = {
+                        left: mainImage.mainImage.left,
+                        top: mainImage.mainImage.top,
+                        scaleX: mainImage.mainImage.scaleX,
+                        scaleY: mainImage.mainImage.scaleY,
+                        angle: mainImage.mainImage.angle,
+                        flipX: mainImage.mainImage.flipX,
+                        flipY: mainImage.mainImage.flipY
+                    };
+
+                    const newId = generateId();
+                    optionImg.set({
+                        ...transform,
+                        id: newId,
+                        selectable: true,
+                        hasControls: true,
+                        hasBorders: true
+                    });
+
+                    mainImage.options.push(optionImg);
+                    renderUi();
+                });
+            };
+
+            reader.readAsDataURL(file); // ✅ Convert File to base64 data URL
+        };
+
+        document.body.appendChild(fileInput);
+        fileInput.click();
+    };
+
+
+    window.loadImageToFabric = async function (source, callback) {
+        const isBase64 = /^data:image\/(png|jpeg|jpg|gif|webp);base64,/.test(source);
+        let base64Source = source;
+        if (!isBase64) {
+            try {
+            base64Source = await toBase64(source);
+            } catch (err) {
+            console.error("Failed to convert image to base64:", err);
+            alert("Failed to load image from gallery.");
+            return;
+            }
+        }
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = function () {
+            const fabricImage = new fabric.Image(img, {
+            left: 100,
+            top: 100,
+            selectable: true,
+            hasControls: true,
+            hasBorders: true,
+            });
+            if (typeof callback === "function") {
+            callback(fabricImage);
+            }
+        };
+        img.onerror = function (err) {
+            console.error("Failed to load image:", base64Source, err);
+            alert("Failed to load image from gallery.");
+        };
+        img.src = base64Source;
+    };
+
+
+    function toBase64(url) {
+    return fetch(url)
+        .then((response) => response.blob())
+        .then(
+        (blob) =>
+            new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+            })
+        );
+    }
+
+    window.addImage = function () {
+        const fileInput = document.getElementById("image-upload");
+        const files = fileInput.files;
+        for (const file of files) {
+            const reader = new FileReader();
+            reader.onload = function (event) {
+            const dataURL = event.target.result;
+            const id = generateId();
+            window.uploadedImages.push({ id, dataURL });
+            const previewList = document.getElementById("image-preview-list");
+            const imgContainer = document.createElement("div");
+            imgContainer.id = id;
+            imgContainer.style.position = "relative";
+            imgContainer.style.display = "inline-block";
+            imgContainer.style.margin = "5px";
+            imgContainer.innerHTML = `
+                <img src="${dataURL}" style="max-width: 100px; max-height: 100px; border: 1px solid #ccc;" />
+                <button onclick="removeUploadedImage('${id}')" 
+                class='btn btn-sm delete-icon d-block' 
+                style="position: absolute; top: 2px; right: 2px; background: rgba(255,255,255,0.8); border:none; cursor:pointer;">❌</button>
+            `;
+            previewList.appendChild(imgContainer);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        fileInput.value = "";
+    };
+    
+
+    window.removeUploadedImage = function (id) {
+        window.uploadedImages = window.uploadedImages.filter((img) => img.id !== id);
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    };
+
+
+        window.saveImagesToCanvas = async function (inputType = 'image-swatcher',name="image") {
+            if (!window.uploadedImages.length) {
+                alert("No images uploaded.");
+                return;
+            }
+
+            const baseImage = window.baseImageObj;
+            if (!baseImage) {
+                alert("No base image found!");
+                return;
+            }
+
+            if (!window.currentProduct.controls) window.currentProduct.controls = [];
+
+            const loadImage = async ({ id, dataURL }) => {
+                const isBase64 = /^data:image\/(png|jpeg|jpg|gif|webp);base64,/.test(dataURL);
+
+                let base64URL = dataURL;
+                if (!isBase64) {
+                    base64URL = await toBase64(dataURL);                }
+
+                return new Promise((resolve) => {
+                    fabric.Image.fromURL(base64URL, function (img) {
+                    img.scaleX = 0.3;
+                    img.scaleY = 0.3;
+
+                    const xPos = (window.canvas.width - img.width * img.scaleX) / 2;
+                    const yPos = (window.canvas.height - img.height * img.scaleY) / 2;
+
+                    img.set({
+                        left: xPos,
+                        top: yPos,
+                    });
+
+                    img.id = id;
+                    window.canvas.add(img);
+                    window.canvas.renderAll();
+
+
+                    window.currentProduct.controls.push({
+                        mainImage: img,
+                        options: [img],
+                        controlType: 'image',
+                        inputType: inputType,
+                        name:name,
+                        isVisible:true,
+                        showColor:false
+                    });
+
+                    resolve();
+                    });
+                });
+            };
+
+            function toBase64(url) {
+                return fetch(url)
+                    .then((response) => response.blob())
+                    .then(
+                    (blob) =>
+                        new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                        })
+                    );
+            }
+
+            await loadImage(window.uploadedImages[0]);
+            const matchingControl = window.currentProduct.controls.find(
+                (control) =>
+                control.controlType === "image" &&
+                control.mainImage.id === window.uploadedImages[0].id
+            );
+            window.uploadedImages.shift();
+            (window.uploadedImages || []).forEach((imgUrl) => {
+                loadImageToFabric(imgUrl.dataURL, (optionImg) => {
+                optionImg.set({
+                    left: matchingControl.mainImage.left,
+                    top: matchingControl.mainImage.top,
+                    scaleX: matchingControl.mainImage.scaleX,
+                    scaleY: matchingControl.mainImage.scaleY,
+                    angle: matchingControl.mainImage.angle,
+                    flipX: matchingControl.mainImage.flipX,
+                    flipY: matchingControl.mainImage.flipY,
+                    id: generateId(),
+                });
+                matchingControl.options.push(optionImg);
+
+                renderUi()
+                });
+            });
+
+
+            window.uploadedImages = [];
+            document.getElementById('image-preview-list').innerHTML = '';
+
+            renderUi();
+        };
+
+
+    window.saveDesign = function () {
+        const templateName = document.getElementById('template-name').value;
+        if (!templateName) {
+            alert("Please enter a template name");
+            return;
+        }
+        window.currentProduct.name = templateName
+    
+        const safeCanvasJson = window.canvas.toJSON([
+            'name', 'id', 'selectable', 'type', 'variantId', 'category',
+            'left', 'top', 'scaleX', 'scaleY', 'angle', 'fill', 'stroke', 'min', 'max','inputType','textTransform'
+        ]);
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        safeCanvasJson.objects.forEach(obj => {
+            const fabricObj = window.canvas.getObjects().find(o => o.id === obj.id);
+            if (fabricObj) {
+                obj.variantId = fabricObj.variantId || '';
+                obj.category = fabricObj.category || '';
+            }
+        });
+
+        const variantsWithSelection = (window.currentProduct.variants || []).map(group => {
+            const updatedValues = group.values.map(value => ({
+                ...value,
+                selected: value.pictureUrl === window.currentProduct.selectedVariantImageUrl
+            }));
+            return { ...group, values: updatedValues };
+        });
+
+        const dataURL = window.canvas.toDataURL({ format: 'png', quality: 1.0 });
+
+        const controls = (window.currentProduct.controls || []).map(ctrl => {
+             if (ctrl.controlType === "text"||ctrl.type ==="textbox"||ctrl.type ==="text")  {
+             
+                return {
+                    id: ctrl.id,
+                    min: ctrl.min,
+                    max: ctrl.max,
+                    inputType:ctrl.inputType,
+                    controlType:ctrl.controlType,
+                    isVisible:ctrl.isVisible,
+                    textTransform:ctrl.textTransform
+                };
+            } else if (ctrl.controlType === "image") {
+                return {
+                    ...ctrl,
+
+                };
+            }
+            return null; // if controlType unknown, skip or handle accordingly
+        }).filter(Boolean);
+
+        const savedDesign = {
+            name: window.currentProduct.name||templateName,
+            canvasSetting: window.canvasSetting,
+            canvasJson: safeCanvasJson,
+            variants: variantsWithSelection,
+            preview: dataURL,
+            selected: window.selectedVariantImageUrl,
+
+            conditions:window.currentProduct.conditions,
+            controls:controls
+            }
+
+        const designJsonString = JSON.stringify(savedDesign);
+    
+        fetch('/admin/templates', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ template: { data: { ...savedDesign } } })
+        }).then(response => {
+            if (!response.ok) throw new Error("Failed to save design.");
+            return response.json();
+        }).then(data => {
+            alert("Design saved successfully!");
+            closeSave();
+        }).catch(error => {
+            console.error('Error saving design:', error);
+            alert("Failed to save design.");
+        });
+
+        return designJsonString;
+    };
+    
+    window.updateDesign = function () {
+        const templateName = document.getElementById('template-name').value;
+        if (!templateName) {
+            alert("Please enter a template name");
+            return;
+        }
+        window.currentProduct.name = templateName
+    
+        const safeCanvasJson = window.canvas.toJSON([
+            'name', 'id', 'selectable', 'type', 'variantId', 'category',
+            'left', 'top', 'scaleX', 'scaleY', 'angle', 'fill', 'stroke', 'min', 'max','inputType','textTransform','isVisible'
+        ]);
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        safeCanvasJson.objects.forEach(obj => {
+            const fabricObj = window.canvas.getObjects().find(o => o.id === obj.id);
+            if (fabricObj) {
+                obj.variantId = fabricObj.variantId || '';
+                obj.category = fabricObj.category || '';
+            }
+        });
+
+        const variantsWithSelection = (window.currentProduct.variants || []).map(group => {
+            const updatedValues = group.values.map(value => ({
+                ...value,
+                selected: value.pictureUrl === window.currentProduct.selectedVariantImageUrl
+            }));
+            return { ...group, values: updatedValues };
+        });
+
+        const dataURL = window.canvas.toDataURL({ format: 'png', quality: 1.0 });
+    
+        const controls = (window.currentProduct.controls || []).map(ctrl => {
+            if (ctrl.controlType === "text"||ctrl.type ==="textbox"||ctrl.type ==="text") {
+                 return {
+                    id: ctrl.id,
+                    min: ctrl.min,
+                    max: ctrl.max,
+                    inputType:ctrl.inputType,
+                    controlType:ctrl.controlType,
+                    isVisible:ctrl.isVisible,
+                    textTransform:ctrl.textTransform
+                };
+            } else if (ctrl.controlType === "image") {
+                return {
+                    ...ctrl
+                };
+            }
+            return null; // if controlType unknown, skip or handle accordingly
+        }).filter(Boolean);
+        const savedDesign = {
+            name: window.currentProduct.name||templateName,
+            canvasJson: safeCanvasJson,
+            canvasSetting: window.canvasSetting,
+            variants: variantsWithSelection,
+            preview: dataURL,
+            selected: window.selectedVariantImageUrl,
+            controls:controls,
+
+            conditions:window.currentProduct.conditions,
+            }
+
+        const designJsonString = JSON.stringify(savedDesign);
+      
+
+        fetch(`/admin/templates/${window.selectedTemplate.id}`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-Token': csrfToken
+        },
+        body: JSON.stringify({ template: { id: window.selectedTemplate.id, data: { ...savedDesign } } })
+        }).then(response => {
+            if (!response.ok) throw new Error("Failed to save design.");
+            return response.json();
+        }).then(data => {
+            alert("Design saved successfully!");
+            closeSave();
+        }).catch(error => {
+            console.error('Error saving design:', error);
+            alert("Failed to save design.");
+        });
+
+        return designJsonString;
+    };
+
+    window.loadDesign = function (designJson) {
+        if (!designJson) {
+            console.warn('No design found.');
+            return;
+        }
+        if (!window.canvas) {
+            console.error('Canvas is not initialized');
+            return;
+        }
+
+        const savedDesign = designJson;
+        window.canvasSetting= savedDesign.canvasSetting;
+        if(savedDesign.canvasSetting){
+        //    window.canvas.setWidth(savedDesign.canvasSetting['width']);
+        //    window.canvas.setHeight(savedDesign.canvasSetting['height']);
+        //     window.canvas.renderAll();
+        //     document.getElementById('display-width').textContent = savedDesign.canvasSetting['width'];
+        //     document.getElementById('display-height').textContent = savedDesign.canvasSetting['height'];
+        //     document.getElementById('canvas-width').value = savedDesign.canvasSetting['width'];
+        //     document.getElementById('canvas-height').value = savedDesign.canvasSetting['height'];
+           
+        }
+        window.canvas.clear();
+
+        // Reset product state
+        window.currentProduct = {
+            name: savedDesign.name || '',
+            controls: savedDesign.controls || [],
+
+            conditions: savedDesign.conditions || [],
+            variants: savedDesign.variants || [],
+            selectedVariantImageUrl: savedDesign.selected || '',
+        };
+
+        window.productImageList = savedDesign.variants || [];
+
+        document.getElementById('template-name').value = savedDesign.name || '';
+        document.getElementById('controls-container').innerHTML = '';
+
+        // Helper: Restore min/max for text controls
+        function restoreTextControls() {
+            window.canvas.getObjects().forEach(obj => {
+                if (obj.type === 'textbox' || obj.type === 'text') {
+                    const meta = (savedDesign.controls || []).find(ctrl => ctrl.id === obj.id && ctrl.min !== undefined);
+                     const metaIndex = (savedDesign.controls || []).findIndex(ctrl => ctrl.id === obj.id && ctrl.min !== undefined);
+                   
+                     if (meta) {
+                        // Restore meta info onto Fabric object
+
+                        obj.inputType = meta.inputType;
+                        obj.min = meta.min;
+                        obj.max = meta.max;
+                        obj.controlType = meta.controlType;
+                        obj.isVisible = meta.isVisible;
+                        
+
+                        if (meta.text !== undefined) {
+                            // obj.set('text', meta.text);
+                        }
+                    }
+  
+                    savedDesign.controls[metaIndex] =obj
+                   
+                }
+                    window.canvas.requestRenderAll();
+            });
+        }
+
+
+        function restoreImageControls() {
+            window.canvas.getObjects().forEach(obj => {
+                if (obj.type === 'image') {
+                    const metaIndex = (savedDesign.controls || []).findIndex(ctrl => ctrl.controlType === "image" && ctrl.mainImage?.src === obj.src);
+                    if (metaIndex !== -1) {
+                        savedDesign.controls[metaIndex].mainImage.id = obj.id;
+
+                        
+                        const options = savedDesign.controls[metaIndex].options || [];
+                        console.log("options",options)
+                       options.forEach((optionImg, idx) => {
+                            // If option image doesn't have an id, generate one
+                            if (!optionImg.id) {
+                                optionImg.id = generateId()
+                            }
+                        });
+                    }
+
+                    const matchingObj = savedDesign.canvasJson.objects.find(o => o.id === obj.id);
+                    if (matchingObj) {
+                        obj.variantId = matchingObj.variantId || '';
+                        obj.category = matchingObj.category || '';
+                    }
+                }
+            });
+        }
+
+        function restoreBackgroundImage() {
+            const bg = savedDesign.canvasJson.backgroundImage;
+            if (bg?.src) {
+                fabric.Image.fromURL(bg.src, function (img) {
+                    img.selectable = true;
+                    img.left = bg.left || 0;
+                    img.top = bg.top || 0;
+                    if (bg.width) img.scaleToWidth(bg.width);
+                    if (bg.height) img.scaleToHeight(bg.height);
+                    window.canvas.setBackgroundImage(img, window.canvas.renderAll.bind(window.canvas));
+                    window.baseImageObj = img;
+                });
+            }
+        }
+
+        function linkControlsToCanvasObjects() {
+                const canvasObjects = window.canvas.getObjects();
+                (savedDesign.controls || []).forEach(ctrl => {
+                    if (ctrl.src && ctrl.id) {
+                        const match = canvasObjects.find(obj => obj.id === ctrl.id && obj.src === ctrl.src);
+                        if (match) {
+                            ctrl.mainImage = match;
+                        }
+                    }
+                });
+        }
+
+        window.canvas.loadFromJSON(savedDesign.canvasJson, () => {
+                window.canvas.renderAll();
+
+                restoreTextControls();
+                restoreImageControls();
+                restoreBackgroundImage();
+                linkControlsToCanvasObjects();
+                setVisible()
+
+                renderUi();
+                updateVariantSection();
+                renderVariantGallery();
+                closeLoadTemplate();
+                updateTemplateActionButtons();
+        });
+
+        // document.getElementById('canvas-body').style.display = 'block'
+        // document.getElementById('canvas-sizer').style.display = 'none'
+    };
+
+
+
+    window.highlightSelectedTextControl = function (e) {
+        const activeObject = window.canvas.getActiveObject();
+
+        if (activeObject && (activeObject.type === 'textbox' || activeObject.type === 'text') && activeObject.id) {
+
+            document.querySelectorAll('.text-controls').forEach(el => {
+                el.classList.remove('highlighted');
+            });
+            document.querySelectorAll('.image-controls').forEach(el => {
+                el.classList.remove('highlighted');
+            });
+            const controlEl = document.getElementById(`text-control-${activeObject.id}`);
+            if (controlEl) {
+                controlEl.classList.add('highlighted');
+                controlEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+        if (activeObject && activeObject.type === 'image' && activeObject.id) {
+
+            document.querySelectorAll('.image-controls').forEach(el => {
+                el.classList.remove('highlighted');
+            });
+            
+            document.querySelectorAll('.text-controls').forEach(el => {
+                el.classList.remove('highlighted');
+            });
+            const controlEl = document.getElementById(`image-control-${activeObject.id}`);
+            if (controlEl) {
+                controlEl.classList.add('highlighted');
+                controlEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }
+
+    window.canvas.on('selection:created', highlightSelectedTextControl);
+    window.canvas.on('selection:updated', highlightSelectedTextControl);
+
+    // function setVisible() {
+    //     const cond = window.currentProduct.conditions||[];
+    //     for(let i=0; i<cond.length;i++){
+    //        const controlToShow = (window.currentProduct.controls || []).find(
+    //             obj => obj?.id === cond[i].id || obj?.mainImage?.id === cond[i].id ||
+    //                 obj?.options?.some(opt => opt?.id === cond[i].id)
+    //         );
+    //         const controlToMatch = (window.currentProduct.controls || []).find(obj => {
+    //             return (
+    //                 obj?.id === cond[i].record ||
+    //                 obj?.mainImage?.id === cond[i].record ||
+    //                 obj?.options?.some(opt => opt?.id === cond[i].record)
+    //             );
+    //         });      
+    //         console.log(controlToMatch,"controlToShow",controlToShow)
+    //         const sameType = controlToShow.controlType ===  controlToMatch.controlType;
+    //         const typeToShow = controlToShow.controlType;
+    //         const typeToMatch = controlToMatch.controlType;
+
+    //         if(sameType){
+    //             if(typeToMatch === 'image'){
+    //                  const isShow = cond[i].logic === "=="
+    //                     ?
+    //                     controlToMatch.mainImage.id === cond[i].value
+    //                     :  
+    //                     controlToMatch.mainImage.id !== cond[i].value;          
+                       
+    //                     controlToShow.isVisible = isShow;
+    //             }else {
+    //                     const isShow = cond[i].logic === "=="
+    //                     ?
+    //                     controlToMatch.text === cond[i].value
+    //                     :  
+    //                     controlToMatch.text !== cond[i].value;          
+                       
+    //                     controlToShow.isVisible = isShow;
+                        
+    //             }
+    //         }
+    //         else{
+    //             if(typeToMatch === 'image'){
+    //                  const isShow = cond[i].logic === "=="
+    //                     ?
+    //                     controlToMatch.mainImage.id === cond[i].value
+    //                     :  
+    //                     controlToMatch.mainImage.id !== cond[i].value;          
+                       
+    //                     controlToShow.isVisible = isShow;
+
+    //             }else{
+    //                  const isShow = cond[i].logic === "=="
+    //                     ?
+    //                     controlToMatch.text === cond[i].value
+    //                     :  
+    //                     controlToMatch.text !== cond[i].value;          
+                       
+    //                     controlToShow.isVisible = isShow;
+    //             }
+    //         }
+    //         }         
+    // }
+
+function setVisible() {
+
+
+    const cond = window.currentProduct.conditions || [];
+    const controls = window.currentProduct.controls || [];
+
+    for (let i = 0; i < cond.length; i++) {
+        const condition = cond[i];
+
+          const controlToShow = (window.currentProduct.controls || []).find(
+                obj => obj?.id === cond[i].id || obj?.mainImage?.id === cond[i].id ||
+                    obj?.options?.some(opt => opt?.id === cond[i].id)
+            );
+            const controlToMatch = (window.currentProduct.controls || []).find(obj => {
+                return (
+                    obj?.id === cond[i].record ||
+                    obj?.mainImage?.id === cond[i].record ||
+                    obj?.options?.some(opt => opt?.id === cond[i].record)
+                );
+            });      
+        if (!controlToShow || !controlToMatch) continue;
+
+        const sameType = controlToShow.controlType === controlToMatch.controlType;
+        const typeToMatch = controlToMatch.controlType;
+        let isShow = false;
+
+        if (sameType) {
+            // Handle same type comparison
+            if (typeToMatch === 'image') {
+                const matchId = controlToMatch.mainImage?.id || '';
+                isShow = condition.logic === "=="
+                    ? matchId === condition.value
+                    : matchId !== condition.value;
+            } else {
+                const matchText = controlToMatch.text || '';
+                isShow = condition.logic === "=="
+                    ? matchText === condition.value
+                    : matchText !== condition.value;
+            }
+        } else {
+            // Handle different type comparison
+            if (typeToMatch === 'image') {
+                const matchId = controlToMatch.mainImage?.id || '';
+                isShow = condition.logic === "=="
+                    ? matchId === condition.value
+                    : matchId !== condition.value;
+            } else {
+                const matchText = controlToMatch.text || '';
+                isShow = condition.logic === "=="
+                    ? matchText === condition.value
+                    : matchText !== condition.value;
+            }
+        }
+
+        controlToShow.isVisible = isShow;
+
+        const objectOnCanvas = (window.canvas?.getObjects() || []).find(obj =>
+            obj?.id === controlToShow.id ||
+            obj?.id === controlToShow.mainImage?.id ||
+            (controlToShow.options || []).some(opt => opt?.id === obj?.id)
+        );
+
+        if (objectOnCanvas) {
+            objectOnCanvas.visible = isShow;
+        }
+    }
+
+    window.canvas?.renderAll();
+}
+
+</script>
+
+        

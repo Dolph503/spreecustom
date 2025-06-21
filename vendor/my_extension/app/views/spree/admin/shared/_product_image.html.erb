@@ -1,0 +1,26 @@
+<% width ||= 50 %>
+<% height ||= 50 %>
+<% image ||= object.default_image %>
+
+<% preview_image = nil %>
+<% if line_item.custom_design_json.present? %>
+  <% begin %>
+    <% design_data = JSON.parse(line_item.custom_design_json) %>
+    <% preview_image = design_data['preview'] if design_data['preview'].present? %>
+  <% rescue JSON::ParserError %>
+    <%# Ignore parsing errors silently %>
+  <% end %>
+<% end %>
+
+<% if preview_image.present? %>
+  <div class="admin-product-image-container">
+    <%= image_tag preview_image, width: width, height: height, alt: object.name %>
+  </div>
+<% elsif image.present? && image.attached? && image.variable? %>
+  <% alt ||= image.alt || object.name %>
+  <div class="admin-product-image-container">
+    <%= spree_image_tag image, width: width, height: height, alt: alt %>
+  </div>
+<% else %>
+  <%= render 'spree/admin/shared/no_image', width: width, height: height %>
+<% end %>

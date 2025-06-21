@@ -1,0 +1,187 @@
+<% content_for :page_actions_dropdown do %>
+  <%= link_to_edit_translations(@product) %>
+  <%= link_to_with_icon(
+    "file",
+    Spree.t(:digital_assets),
+    spree.admin_product_digital_assets_path(@product),
+    class: "dropdown-item",
+  ) if can?(:manage, Spree::Digital) %>
+
+  <%= render_admin_partials(:product_dropdown_partials, product: @product) %>
+
+  <div class="dropdown-divider"></div>
+
+  <%= external_page_preview_link(@product) %>
+
+  <% if can?(:clone, @product) %>
+    <%= link_to_with_icon(
+      "copy",
+      Spree.t(:clone),
+      spree.clone_admin_product_path(@product),
+      class: "dropdown-item",
+      data: { turbo_method: :post },
+    ) %>
+  <% end %>
+<% end %>
+
+<%= render partial: "spree/admin/shared/error_messages", locals: { target: @product } %>
+
+<% content_for :page_title do %>
+  <%= render "spree/admin/products/edit_page_title" %>
+<% end %>
+
+<%= form_for [:admin, @product] do |f| %>
+  <%= render "form", f: f %>
+
+  <%= f.hidden_field :template_id, id: "selected_template_id" %>
+
+  <div class="row">
+    <div class="col-md-8">
+      <div class='card mb-4'>
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <h5 class="card-title">Template</h5>
+        </div>
+        <div class='card-body'>
+          <div id="template_preview_area" class="mt-3 text-center" style="display:none;">
+            <img id="template_preview_image" class="border-1" src width="200" height="200" />
+          </div>
+
+          <div class="form-group">
+            <div class="custom-select custom-dropdown">
+              <div class="selected-option" style="<%= @product.template_id ? '' : 'padding: 10px;' %>">
+                <% selected_template = @templates.find { |t| t.id.to_s == @product.template_id.to_s } %>
+                <% if selected_template %>
+                  <img src="<%= selected_template.data['preview'] %>" alt="preview" width="30" height="30" />
+                  <span><%= selected_template.data['name'] %></span>
+                <% else %>
+                  Select a template
+                <% end %>
+              </div>
+
+              <div class="dropdown-options" style="display: none;">
+                <% @templates.each do |template| %>
+                  <div class="dropdown-item <%= 'selected' if template.id.to_s == @product.template_id.to_s %>"
+                    data-id="<%= template.id %>"
+                    data-image="<%= template.data['preview'] %>"
+                    data-name="<%= template.data['name'] %>">
+                    <img src="<%= template.data['preview'] %>" alt="preview" width="30" height="30" />
+                    <span><%= template.data['name'] %></span>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%= render "spree/admin/shared/edit_resource_links", f: f %>
+<% end %>
+
+<script>
+  document.addEventListener("turbo:load", function () {
+    const selectedOption = document.querySelector(".selected-option");
+    const dropdownOptions = document.querySelector(".dropdown-options");
+    const previewArea = document.getElementById("template_preview_area");
+    const previewImage = document.getElementById("template_preview_image");
+    const hiddenInput = document.getElementById("selected_template_id");
+
+    const selectedItem = document.querySelector(".dropdown-item.selected");
+    if (selectedItem) {
+      const image = selectedItem.dataset.image;
+      const name = selectedItem.dataset.name;
+
+      previewImage.src = image;
+      previewArea.style.display = "block";
+
+      selectedOption.innerHTML = `
+        <img src="${image}" alt="preview" width="30" height="30" />
+        <span>${name}</span>
+      `;
+      selectedOption.style.padding = "0";
+    }
+
+    selectedOption?.addEventListener("click", () => {
+      dropdownOptions.style.display = dropdownOptions.style.display === "none" ? "block" : "none";
+    });
+
+    document.querySelectorAll(".dropdown-item").forEach(item => {
+      item.addEventListener("click", () => {
+        const name = item.dataset.name;
+        const image = item.dataset.image;
+        const id = item.dataset.id;
+
+        previewImage.src = image;
+        previewArea.style.display = "block";
+
+        selectedOption.innerHTML = `
+          <img src="${image}" alt="preview" width="30" height="30" />
+          <span>${name}</span>
+        `;
+        selectedOption.style.padding = "0";
+
+        if (hiddenInput) hiddenInput.value = id;
+
+        document.querySelectorAll(".dropdown-item").forEach(i => i.classList.remove("selected"));
+        item.classList.add("selected");
+
+        dropdownOptions.style.display = "none";
+      });
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".custom-dropdown")) {
+        dropdownOptions.style.display = "none";
+      }
+    });
+  });
+</script>
+
+<style>
+  .custom-dropdown {
+    position: relative;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 3px;
+    background: #fff;
+  }
+
+  .selected-option {
+    font-weight: 500;
+  }
+
+  .dropdown-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    z-index: 999;
+  }
+
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    transition: background 0.2s ease;
+  }
+
+  .dropdown-item:hover {
+    background: #f1f1f1;
+  }
+
+  .dropdown-item img {
+    border-radius: 4px;
+  }
+
+  .dropdown-item.selected {
+    background: #eef3ff;
+  }
+</style>

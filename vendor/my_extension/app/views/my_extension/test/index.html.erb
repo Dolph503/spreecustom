@@ -1,0 +1,860 @@
+<body>
+
+  <h2>Product Template Customizer</h2>
+
+  <button onclick="openTemplatePopup()">Add Template</button>
+
+  <div id="popup-overlay" class="popup-overlay" onclick="closeTemplatePopup()"></div>
+  <div id="template-popup" class="popup">
+    <h3>Add Template</h3>
+    <div id="temp-name">
+      <label>Template Name:</label>
+      <input type="text" id="template-name" placeholder="Name"><br><br>
+    </div>
+    <div id="temp-base-img">
+      <label>Base Template Image:</label>
+      <input type="file" id="base-template-upload" accept="image/*"><br><br>
+    </div>
+
+    <h4>Variants</h4>
+    <div id="variant-section"></div>
+
+    <div style="margin-top: 10px;">
+      <input type="text" id="new-variant-type-name" placeholder="New Variant Type Name" style="margin-right: 10px;">
+      <button onclick="addVariantType()">+ Add Variant Type</button>
+    </div><br>
+
+    <button onclick="addTemplate()">Add Template</button>
+    <button onclick="closeTemplatePopup()">Close</button>
+  </div>
+
+
+  <div style="width: 100%; display: flex; gap:20px;">
+    <div style="width: 50%;">
+      <canvas id="canvas" width="700" height="700" style="width: 100%; max-width: 100%;"></canvas>
+    </div>
+    <div style="width: 50%;">
+      <div id="variant-gallery-display"></div>
+      <h4>Image Controls</h4>
+      <div id="image-controls-container">
+        <!-- Individual text controls will be added here -->
+      </div>
+      <h4>Text Controls</h4>
+      <div id="text-controls-container">
+        <!-- Individual text controls will be added here -->
+      </div>
+
+
+    </div>
+  </div>
+  <div class="controls">
+    <h4>Add Text</h4>
+    <div id="text-container">
+      <label>Text Name</label>
+      <input type="text" id="text-name" placeholder="Enter text" />
+      <label>Text Value</label>
+      <input type="text" id="text-input" placeholder="Enter text" />
+      <select id="font-size" class="font-size">
+        <option value="20">20</option>
+        <option value="30">30</option>
+        <option value="40">40</option>
+        <option value="50">50</option>
+      </select>
+      <input type="color" id="font-color" class="font-color" value="#000000" />
+      <select id="font-family" class="font-family">
+        <option value="Arial">Arial</option>
+        <option value="Verdana">Verdana</option>
+        <option value="Courier New">Courier New</option>
+      </select>
+      <button onclick="addText()">Add Text</button>
+    </div>
+
+    <h4>Image Upload</h4>
+    <div class="image-upload">
+      <input type="file" id="image-upload" accept="image/*" onchange="addImage()">
+    </div>
+    <button onclick="saveDesign()">💾 Save JSON</button>
+    <button onclick="loadDesign()">📂 Load JSON</button>
+    <button onclick="bringForward()">🔼 Forward</button>
+    <button onclick="sendBackward()">🔽 Backward</button>
+    <button onclick="deleteSelected()">❌ Delete</button>
+  </div>
+  <!-- The file input for the option image -->
+  <input type="file" id="image-upload-option" style="display: none" onchange="handleOptionImageUpload()" />
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+  <!-- <script src="./ProductCustomizer.js"></script> -->
+ 
+ 
+  <script>
+
+    const canvas = new fabric.Canvas('canvas', { preserveObjectStacking: true });
+    let baseImageObj = null;
+    let textObjects = [];
+
+    let currentProduct = {
+      type: '',
+      variants: [],
+      images: [],
+      texts: []
+    };
+
+    let currentImageObj = null;
+    function addImage() {
+      const fileInput = document.getElementById('image-upload');
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        fabric.Image.fromURL(event.target.result, function (img) {
+          const baseImage = baseImageObj; // Assuming baseImageObj is the object representing your base image
+          if (!baseImage) {
+            alert("No base image found!");
+            return;
+          }
+
+          const xPos = baseImageObj.left + (baseImageObj.getScaledWidth() - img.getScaledWidth()) / 2;
+          const yPos = baseImageObj.top + (baseImageObj.getScaledHeight() - img.getScaledHeight()) / 2;
+
+
+          img.set({
+            left: xPos,
+            top: yPos,
+            scaleX: 0.3,
+            scaleY: 0.3,
+          });
+
+          img.id = `image-${Date.now()}`
+          canvas.add(img);
+          currentImageObj = img;
+
+          currentProduct.images.push({
+            mainImage: img,
+            options: [img]
+          });
+
+          addImageControls(img);
+        });
+      };
+      reader.readAsDataURL(file);
+      fileInput.value = '';
+    }
+
+    function displayImageOptions() {
+      const container = document.getElementById('image-controls-container');
+      container.innerHTML = null;
+      (currentProduct.images || []).forEach((imageData, index) => {
+
+        const imageSection = document.createElement('div');
+        imageSection.className = 'image-section';
+        imageSection.style.marginBottom = '20px';
+
+        imageSection.id = 'image-control-' + imageData.mainImage.id;
+        const mainImageContainer = document.createElement('div');
+        mainImageContainer.className = 'main-image-container';
+
+        const mainImage = document.createElement('img');
+        mainImage.src = imageData.mainImage?.src || imageData.mainImage?.getSrc() || 'placeholder.jpg';
+        mainImage.alt = 'Main Image';
+        mainImage.style.width = '200px';
+        mainImage.style.height = 'auto';
+        mainImage.style.marginBottom = '10px';
+
+        // mainImageContainer.appendChild(mainImage); 
+        imageSection.appendChild(mainImageContainer);
+
+        const optionsContainer = document.createElement('div');
+        optionsContainer.className = 'options-container';
+
+        imageData.options.forEach((optionImage, optionIndex) => {
+          const optionImageContainer = document.createElement('div');
+          optionImageContainer.className = 'option-image-container';
+          optionImageContainer.style.display = 'inline-block';
+          optionImageContainer.style.marginRight = '10px';
+
+          const optionImageElement = document.createElement('img');
+          optionImageElement.src = optionImage?.src || optionImage?.getSrc() || 'placeholder.jpg';
+          optionImageElement.alt = 'Option Image';
+          optionImageElement.style.width = '80px';
+          optionImageElement.style.cursor = 'pointer';
+
+          optionImageElement.onclick = () => {
+            const targetObj = canvas.getObjects().find(obj => obj === imageData.mainImage);
+
+            if (targetObj) {
+              const { left, top, scaleX, scaleY, angle, flipX, flipY } = targetObj;
+              fabric.Image.fromURL(optionImage?.src || optionImage?.getSrc(), function (newImg) {
+                newImg.set({
+                  left,
+                  top,
+                  scaleX,
+                  scaleY,
+                  angle,
+                  flipX,
+                  flipY,
+                  selectable: targetObj.selectable,
+                  hasControls: targetObj.hasControls,
+                  hasBorders: targetObj.hasBorders,
+                });
+
+                const index = canvas.getObjects().indexOf(targetObj);
+                canvas.remove(targetObj);
+                canvas.insertAt(newImg, index);
+                imageData.mainImage = newImg;
+                currentImageObj = newImg;
+                canvas.renderAll();
+              });
+            }
+          };
+          optionImageContainer.appendChild(optionImageElement);
+          optionsContainer.appendChild(optionImageContainer);
+        });
+
+        imageSection.appendChild(optionsContainer);
+        const addOptionButton = document.createElement('button');
+        addOptionButton.textContent = 'Add Option';
+        addOptionButton.style.marginTop = '10px';
+        addOptionButton.onclick = () => {
+          handleOptionImageUpload(imageData);
+        };
+        imageSection.appendChild(addOptionButton);
+        container.appendChild(imageSection);
+      });
+    }
+
+    function addImageControls(img) {
+      displayImageOptions()
+    }
+
+    function addOptionImageControls(optionImg, optionsContainer) {
+      const imagePreview = document.createElement('img');
+      imagePreview.src = optionImg.getSrc();
+      imagePreview.alt = "Option Image Preview";
+      imagePreview.style.maxWidth = "80px";
+      imagePreview.style.marginRight = "10px";
+      imagePreview.style.cursor = "pointer";
+
+      imagePreview.onclick = function () {
+        let imageIndex = currentProduct.images.findIndex(image => image.mainImage === currentImageObj);
+        if (imageIndex !== -1) {
+          currentProduct.images[imageIndex].options.push(optionImg);
+        }
+      };
+
+      optionsContainer.appendChild(imagePreview);
+    }
+
+    function handleOptionImageUpload(mainImage, optionsContainer) {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.style.display = 'none';
+
+      fileInput.onchange = function () {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+
+        reader.onload = function (event) {
+          fabric.Image.fromURL(event.target.result, function (optionImg) {
+            const preview = document.createElement('img');
+            preview.src = optionImg.getSrc();
+            preview.style.maxWidth = "80px";
+            preview.style.cursor = "pointer";
+            preview.onclick = () => {
+              canvas.remove(mainImage.mainImage);
+              optionImg.set({
+                left: mainImage.mainImage.left,
+                top: mainImage.mainImage.top,
+                scaleX: mainImage.mainImage.scaleX,
+                scaleY: mainImage.mainImage.scaleY,
+                angle: mainImage.mainImage.angle,
+                flipX: mainImage.mainImage.flipX,
+                flipY: mainImage.mainImage.flipY,
+              });
+
+
+              canvas.add(optionImg);
+              currentImageObj = optionImg;
+              canvas.renderAll();
+              let imageIndex = currentProduct.images.findIndex(image => image.mainImage === mainImage);
+              if (imageIndex !== -1) {
+                mainImage.options.push(optionImg);
+              }
+            };
+            mainImage.options.push(optionImg);
+            displayImageOptions()
+          });
+        };
+        reader.readAsDataURL(file);
+      };
+      document.body.appendChild(fileInput);
+      fileInput.click();
+    }
+
+    function replaceMainImage(optionImg) {
+      const mainImage = currentImageObj;
+      if (mainImage) {
+        const props = {
+          left: mainImage.left,
+          top: mainImage.top,
+          scaleX: mainImage.scaleX,
+          scaleY: mainImage.scaleY,
+          angle: mainImage.angle,
+          flipX: mainImage.flipX,
+          flipY: mainImage.flipY,
+        };
+        canvas.remove(mainImage);
+        optionImg.set(props);
+        canvas.add(optionImg);
+        canvas.renderAll();
+      }
+    }
+
+    function addText() {
+      const textName = document.getElementById('text-name').value;
+      const textInput = document.getElementById('text-input').value;
+      const fontSize = document.getElementById('font-size').value;
+      const fontColor = document.getElementById('font-color').value;
+      const fontFamily = document.getElementById('font-family').value;
+
+      if (textInput.trim() === '') {
+        alert("Please enter some text.");
+        return;
+      }
+      if (textName.trim() === '') {
+        alert("Please enter some text.");
+        return;
+      }
+      const baseImage = baseImageObj; // Assuming baseImageObj is the object representing your base image
+      if (!baseImage) {
+        alert("No base image found!");
+        return;
+      }
+       const xPos = 100;
+        const yPos = 100;
+      const text = new fabric.Text(textInput, {
+        left: xPos,
+        top: yPos,
+        fontSize: parseInt(fontSize),
+        fill: fontColor,
+        fontFamily: fontFamily,
+        name: textName,
+        tilte: textName,
+      });
+      text.id = 'text-' + Date.now();
+      canvas.add(text);
+      textObjects.push(text);
+      currentProduct.texts.push(text);
+      addTextControls(text, textName);
+
+      document.getElementById('text-name').value = '';
+      document.getElementById('text-input').value = '';
+      document.getElementById('font-size').value = '20';
+      document.getElementById('font-color').value = '#000000';
+      document.getElementById('font-family').value = 'Arial';
+    }
+
+
+    function addTextControls(text, text_name) {
+      const container = document.getElementById('text-controls-container');
+      const controlDiv = document.createElement('div');
+      controlDiv.className = 'text-controls';
+      controlDiv.id = 'text-control-' + text.id;
+
+      const textName = document.createElement('div');
+      textName.className = 'text-item';
+      textName.innerText = text_name;
+
+      const textInput = document.createElement('input');
+      textInput.type = 'text';
+      textInput.value = text.text;
+      textInput.oninput = function () {
+        text.set({ text: textInput.value });
+        canvas.renderAll();
+      };
+
+      const fontSizeInput = document.createElement('select');
+      fontSizeInput.innerHTML = `
+        <option value="20">20</option>
+        <option value="30">30</option>
+        <option value="40">40</option>
+        <option value="50">50</option>`;
+      fontSizeInput.value = text.fontSize;
+      fontSizeInput.onchange = function () {
+        text.set({ fontSize: parseInt(fontSizeInput.value) });
+        canvas.renderAll();
+      };
+
+      const fontColorInput = document.createElement('input');
+      fontColorInput.type = 'color';
+      fontColorInput.value = text.fill;
+      fontColorInput.onchange = function () {
+        text.set({ fill: fontColorInput.value });
+        canvas.renderAll();
+      };
+
+      const fontFamilyInput = document.createElement('select');
+      fontFamilyInput.innerHTML = `
+        <option value="Arial">Arial</option>
+        <option value="Verdana">Verdana</option>
+        <option value="Courier New">Courier New</option>`;
+      fontFamilyInput.value = text.fontFamily;
+      fontFamilyInput.onchange = function () {
+        text.set({ fontFamily: fontFamilyInput.value });
+        canvas.renderAll();
+      };
+
+      const removeButton = document.createElement('button');
+      removeButton.innerText = 'Remove Text';
+      removeButton.onclick = function () {
+        canvas.remove(text);
+        textObjects = textObjects.filter(t => t !== text);
+        currentProduct.texts = currentProduct.texts.filter(t => t !== text);
+        container.removeChild(controlDiv);
+      };
+
+      controlDiv.appendChild(textName);
+      controlDiv.appendChild(textInput);
+      controlDiv.appendChild(fontSizeInput);
+      controlDiv.appendChild(fontColorInput);
+      controlDiv.appendChild(fontFamilyInput);
+      controlDiv.appendChild(removeButton);
+
+      container.appendChild(controlDiv);
+    }
+
+    canvas.on('object:moving', function (e) {
+      const obj = e.target;
+      // Only apply to text objects
+      if (obj.type !== 'text' && obj.type !== 'image') return;
+
+      if (!baseImageObj) return;
+
+      const base = baseImageObj;
+
+      const baseLeft = base.left;
+      const baseTop = base.top;
+      const baseRight = base.left + base.getScaledWidth();
+      const baseBottom = base.top + base.getScaledHeight();
+
+      const objWidth = obj.getScaledWidth();
+      const objHeight = obj.getScaledHeight();
+
+      // Clamp left
+      if (obj.left < baseLeft) obj.left = baseLeft;
+
+      // Clamp top
+      if (obj.top < baseTop) obj.top = baseTop;
+
+      // Clamp right
+      if (obj.left + objWidth > baseRight) obj.left = baseRight - objWidth;
+
+      // Clamp bottom
+      if (obj.top + objHeight > baseBottom) obj.top = baseBottom - objHeight;
+    });
+    canvas.on('object:selected', function (e) {
+
+      if (e.target && e.target.type === 'text') {
+
+      }
+    });
+
+    canvas.on('selection:created', highlightSelectedTextControl);
+    canvas.on('selection:updated', highlightSelectedTextControl);
+
+    function highlightSelectedTextControl(e) {
+      const activeObject = canvas.getActiveObject();
+      if (activeObject && (activeObject.type === 'textbox' || activeObject.type === 'text') && activeObject.id) {
+        // Remove highlight from all
+        document.querySelectorAll('.text-controls').forEach(el => {
+          el.classList.remove('highlighted');
+        });
+        document.querySelectorAll('.image-section').forEach(el => {
+          el.classList.remove('highlighted');
+        });
+        // Highlight the current one
+        const controlEl = document.getElementById(`text-control-${activeObject.id}`);
+        if (controlEl) {
+          controlEl.classList.add('highlighted');
+          controlEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+      if (activeObject && activeObject.type === 'image' && activeObject.id) {
+        // Remove highlight from all
+        document.querySelectorAll('.image-section').forEach(el => {
+          el.classList.remove('highlighted');
+        });
+        document.querySelectorAll('.text-controls').forEach(el => {
+          el.classList.remove('highlighted');
+        });
+
+        // Highlight the current one
+        const controlEl = document.getElementById(`image-control-${activeObject.id}`);
+        if (controlEl) {
+          controlEl.classList.add('highlighted');
+          controlEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
+
+    canvas.on('object:removed', function (e) {
+      const obj = e.target;
+      if (obj && (obj.type === 'text' || obj.type === 'textbox') && obj.id) {
+        const el = document.getElementById(`text-control-${obj.id}`);
+        if (el) el.remove();
+      }
+      //    if (obj.type === 'image') {
+      //   const el = document.getElementById(`image-control-${obj.id}`);
+      //   if (el) el.remove();
+      // }
+      if (obj && obj.id) {
+        if (obj.type === 'text' || obj.type === 'textbox') {
+          currentProduct.texts = currentProduct.texts.filter(text => text.id !== obj.id);
+        }
+        // if (obj.type === 'image') {
+        //   currentProduct.images = currentProduct.images.filter(image => image.mainImage.id !== obj.id);
+        // }
+      }
+    });
+
+
+    function openTemplatePopup() {
+      document.getElementById('popup-overlay').style.display = 'block';
+      document.getElementById('template-popup').style.display = 'block';
+    }
+
+    function closeTemplatePopup() {
+      document.getElementById('popup-overlay').style.display = 'none';
+      document.getElementById('template-popup').style.display = 'none';
+    }
+    document.getElementById('base-template-upload').addEventListener('change', function (e) {
+      const reader = new FileReader();
+      reader.onload = function (f) {
+        fabric.Image.fromURL(f.target.result, function (img) {
+          if (baseImageObj) canvas.remove(baseImageObj);
+          baseImageObj = img;
+          img.selectable = false;
+
+          // Set the image width and height to its original size
+          img.scaleToWidth(img.width);  // Set the image width to its original width
+          img.scaleToHeight(img.height);  // Set the height to its original height
+
+          // Center the image on the canvas
+          img.left = (canvas.width - img.width) / 2; // Calculate the center horizontally
+          img.top = (canvas.height - img.height) / 2; // Calculate the center vertically
+
+          canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
+
+          const value = document.getElementById('template-name').value;
+          addDesignVariant(img, value);
+
+          // Clear the input fields
+          document.getElementById('base-template-upload').value = '';
+          document.getElementById('template-name').value = '';
+        });
+      };
+      reader.readAsDataURL(e.target.files[0]);
+    });
+
+    function addDesignVariant(img, value) {
+      const existingDesign = currentProduct.variants.find(v => v.name === 'Design');
+      const imageUrl = img.getSrc();
+      if (existingDesign) {
+        existingDesign.values.push({
+          value: value,
+          pictureUrl: imageUrl,
+          thumbnailUrl: imageUrl
+        })
+      } else {
+        const designVariant = {
+          name: 'Design',
+          values: [{
+            value: value,
+            pictureUrl: imageUrl,
+            thumbnailUrl: imageUrl
+          }]
+        };
+        currentProduct.variants.push(designVariant);
+      }
+
+      renderVariantGallery();
+      updateVariantSection();
+    }
+
+    function renderVariantGallery() {
+      const gallery = document.getElementById('variant-gallery-display');
+      gallery.innerHTML = '';
+
+      currentProduct.variants.forEach((variant) => {
+        if (variant.values.length < 2) return;
+        const groupParent = document.createElement('div');
+        groupParent.className = 'variant-parent';
+
+        const title = document.createElement('div');
+        title.className = 'variant-title';
+        title.innerText = variant.name;
+
+        const group = document.createElement('div');
+        group.className = 'variant-group';
+
+        const itemsContainer = document.createElement('div');
+        itemsContainer.className = 'variant-items';
+
+        variant.values.forEach((value) => {
+          const item = document.createElement('div');
+          item.className = 'variant-item';
+          item.innerHTML = `
+                <img src="${value.thumbnailUrl}" alt="${value.value}" />
+                <span>${value.value}</span>`;
+          item.onclick = () => switchVariant(value);
+          itemsContainer.appendChild(item);
+        });
+
+        group.appendChild(itemsContainer);
+        groupParent.appendChild(title);
+        groupParent.appendChild(group);
+        gallery.appendChild(groupParent);
+      });
+    }
+
+    function updateVariantSection() {
+      const variantSection = document.getElementById('variant-section');
+      variantSection.innerHTML = '';
+
+      currentProduct.variants.forEach((variant, index) => {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `<strong>${variant.name}</strong><br>`;
+
+        if (variant.values.length > 0) {
+          const group = document.createElement('div');
+          group.className = 'variant-group';
+
+          variant.values.forEach((value, valueIndex) => {
+            const valueContainer = document.createElement('div');
+            valueContainer.className = 'variant-item';
+            valueContainer.style.position = 'relative';
+
+            valueContainer.innerHTML = `
+                    <img src="${value.thumbnailUrl}" alt="${value.value}" />
+                    <span>${value.value}</span>
+                `;
+
+            const removeIcon = document.createElement('span');
+            removeIcon.innerText = '×';
+            removeIcon.className = 'remove-icon';
+            removeIcon.style.position = 'absolute';
+            removeIcon.style.top = '5px';
+            removeIcon.style.right = '5px';
+            removeIcon.style.cursor = 'pointer';
+            removeIcon.style.background = '#fff';
+            removeIcon.style.border = '1px solid #ccc';
+            removeIcon.style.borderRadius = '50%';
+            removeIcon.style.width = '20px';
+            removeIcon.style.height = '20px';
+            removeIcon.style.display = 'flex';
+            removeIcon.style.alignItems = 'center';
+            removeIcon.style.justifyContent = 'center';
+            removeIcon.style.fontWeight = 'bold';
+
+            removeIcon.onclick = () => {
+              variant.values.splice(valueIndex, 1);
+              updateVariantSection();
+              renderVariantGallery()
+            };
+
+            valueContainer.appendChild(removeIcon);
+            group.appendChild(valueContainer);
+          });
+
+          wrapper.appendChild(group);
+        }
+
+        const addVariantButton = document.createElement('button');
+        addVariantButton.innerText = '+ Add Variant';
+        addVariantButton.onclick = () => showVariantForm(index);
+        wrapper.appendChild(addVariantButton);
+
+        variantSection.appendChild(wrapper);
+      });
+    }
+
+    function showVariantForm(index) {
+      const variantSection = document.getElementById('variant-section');
+      const form = document.createElement('div');
+      form.id = `variant-form-${index}`;
+
+      form.innerHTML = `
+        <label>Name:</label><br>
+        <input type="text" id="variant-name-${index}" placeholder="Name"><br>
+        <label>Image:</label><br>
+        <input type="file" id="variant-image-${index}" accept="image/*"><br>
+        <label>Thumbnail (optional):</label><br>
+        <input type="file" id="thumbnail-image-${index}" accept="image/*"><br>
+        <button onclick="addVariant(${index})">Add</button><hr>`;
+
+      variantSection.appendChild(form);
+    }
+
+
+    function addVariant(index) {
+      const name = document.getElementById(`variant-name-${index}`).value;
+      const imageFile = document.getElementById(`variant-image-${index}`).files[0];
+      const thumbFile = document.getElementById(`thumbnail-image-${index}`).files[0];
+
+      if (!name || !imageFile) return alert("Please enter name and image");
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const pictureUrl = e.target.result;
+        const thumbReader = new FileReader();
+        thumbReader.onload = function (t) {
+          const thumbnailUrl = thumbFile ? t.target.result : pictureUrl;
+          currentProduct.variants[index].values.push({
+            value: name,
+            pictureUrl,
+            thumbnailUrl
+          });
+          updateVariantSection();
+          renderVariantGallery();
+        };
+        thumbReader.readAsDataURL(thumbFile || imageFile);
+      };
+      reader.readAsDataURL(imageFile);
+    }
+
+    function switchVariant(value) {
+      fabric.Image.fromURL(value.pictureUrl, function (img) {
+        baseImageObj = img;
+        img.selectable = false;
+        img.scaleToWidth(canvas.width);
+        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
+      });
+    }
+
+    function addVariantType() {
+      const input = document.getElementById('new-variant-type-name');
+      const typeName = input.value.trim();
+      if (!typeName) {
+        alert("Please enter a variant type name");
+        return;
+      }
+
+      const newType = {
+        name: typeName,
+        values: []
+      };
+
+      currentProduct.variants.push(newType);
+      input.value = '';
+      updateVariantSection();
+      renderVariantGallery();
+    }
+
+    function addTemplate() {
+      closeTemplatePopup()
+    }
+
+    function saveDesign() {
+      const savedDesign = {
+        canvasJson: canvas.toJSON(['selectable']),
+        variants: currentProduct.variants,
+        texts: currentProduct.texts.map(text => ({
+          text: text.text,
+          left: text.left,
+          top: text.top,
+          fontSize: text.fontSize,
+          fill: text.fill,
+          fontFamily: text.fontFamily,
+          angle: text.angle || 0,
+          name: text.name || text.tilte,
+
+          tilte: text.name || text.tilte
+        })),
+        images: currentProduct.images,
+        productImages: []
+      };
+      if (currentProduct.imageOptions) {
+        savedDesign.productImages = currentProduct.imageOptions.map(img => ({
+          id: img.id,
+          src: img.src,
+          label: img.label || '',
+          category: img.category || ''
+        }));
+      }
+
+      const designJsonString = JSON.stringify(savedDesign);
+      localStorage.setItem('savedDesign', designJsonString);
+      alert("Saved")
+      return designJsonString;
+    }
+
+    function loadDesign() {
+      const designJsonString = localStorage.getItem('savedDesign');
+
+      if (!designJsonString) {
+        console.warn('No design found in localStorage.');
+        return;
+      }
+
+      const savedDesign = JSON.parse(designJsonString);
+      canvas.clear();
+
+      currentProduct.texts = [];
+      currentProduct.variants = [];
+      currentProduct.images = [];
+
+      const text = document.getElementById('text-controls-container')
+      const images = document.getElementById('image-controls-container')
+      text.innerHTML = null;
+      images.innerHTML = null
+
+      canvas.loadFromJSON(savedDesign.canvasJson, () => {
+        canvas.renderAll();
+        currentProduct.texts = [];
+
+        canvas.getObjects().forEach((obj, index) => {
+          if (obj.type === 'textbox' || obj.type === 'text') {
+            currentProduct.texts.push(obj);
+            addTextControls(obj, savedDesign.texts[index]?.name || savedDesign.texts[index]?.title); // only once
+          }
+        });
+        currentProduct.images = savedDesign.images || [];
+        const canvasObjects = canvas.getObjects();
+        (currentProduct.images || []).forEach((imageData, index) => {
+          const match = canvasObjects.find(obj => {
+            return obj.src === imageData.mainImage?.src;
+          });
+
+          if (match) {
+            imageData.mainImage = match;
+          }
+        });
+        currentProduct.variants = savedDesign.variants || [];
+        displayImageOptions()
+        renderVariantGallery();
+        updateVariantSection();
+      });
+    }
+
+    function bringForward() {
+      const active = canvas.getActiveObject();
+      if (active) canvas.bringForward(active);
+    }
+
+    function sendBackward() {
+      const active = canvas.getActiveObject();
+      if (active) canvas.sendBackwards(active);
+    }
+
+    function deleteSelected() {
+      const active = canvas.getActiveObject();
+      if (active) canvas.remove(active);
+    }
+
+
+  </script>
+
+
+
+
+
+</body>

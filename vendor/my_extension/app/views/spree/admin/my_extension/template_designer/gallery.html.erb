@@ -1,0 +1,71 @@
+
+  <div class="design-template">
+    <%= stylesheet_link_tag 'spree/backend/my_extension/template_designer', media: 'all' %>
+
+    <h1>Gallery Page</h1>
+    <p>This is the gallery page for the template designer.</p> 
+
+    <%= form_with model: Gallery.new, url: spree.admin_create_gallery_image_path, local: true, multipart: true, data: { turbo: false } do |form| %>
+  <div class="form-group">
+    <%= form.label :image, 'Upload Image', class: 'form-label' %><br>
+
+    <div class="custom-file-upload">
+      <label for="gallery_image" class="btn btn-outline-primary">
+        Choose Image
+      </label>
+      <%= form.file_field :image, id: 'gallery_image', class: 'd-none', accept: '.png,.jpg,.jpeg,.webp', required: true %>
+      <span id="file-name" style="margin-left: 10px; font-style: italic;"></span>
+    </div>
+
+    <!-- 🔍 Preview Image Display -->
+    <div class="mt-3" id="image-preview-container" style="display: none;">
+      <p><strong>Preview:</strong></p>
+      <img id="image-preview" src="#" alt="Image Preview" style="max-width: 200px; border: 1px solid #ccc;" />
+    </div>
+  </div>
+
+  <div class="form-group mt-2">
+    <%= form.submit 'Upload Image', class: 'btn btn-sm btn-primary' %>
+  </div>
+<% end %>
+
+  <h2>Uploaded Images</h2>
+  <div class="gallery">
+    <% @gallery_images.each_with_index do |image, index| %>
+      <div class="gallery-item">
+        <% if image.image.attached? %>
+          <!-- Correct way to display the attached image -->
+          <%= image_tag main_app.url_for(image.image), alt: image.title %>
+          <p class='mb-0 text-center'><%= truncate(image.title, length: 20) %></p>
+          
+          <%= button_to 'Delete', spree.admin_destroy_gallery_image_path(image.id), method: :delete, data: { confirm: 'Are you sure?' }, class: 'btn btn-danger' %>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const fileInput = document.getElementById('gallery_image');
+    const fileNameDisplay = document.getElementById('file-name');
+    const previewContainer = document.getElementById('image-preview-container');
+    const previewImage = document.getElementById('image-preview');
+
+    fileInput.addEventListener('change', function () {
+      const file = fileInput.files[0];
+      if (file) {
+        fileNameDisplay.textContent = file.name;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          previewImage.src = e.target.result;
+          previewContainer.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      } else {
+        fileNameDisplay.textContent = '';
+        previewContainer.style.display = 'none';
+        previewImage.src = '';
+      }
+    });
+  });
+</script>

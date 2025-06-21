@@ -1,0 +1,132 @@
+<style>
+  .font-item.selected {
+    border: 2px solid #007bff;
+    background-color: #e7f1ff;
+    border-radius: 6px;
+  }
+</style>
+<div class=" pt-3">
+  <div class="design-template">
+    <%= stylesheet_link_tag 'spree/backend/my_extension/template_designer', media: 'all' %>
+
+    <h1>Fonts Page</h1>
+    <p>This is the page for managing fonts in the template designer.</p>
+<%= form_with model: Font.new, url: spree.admin_create_font_path, local: true, multipart: true, data: { turbo: false } do |form| %>
+  <div class="form-group">
+    <%= form.label :file, 'Upload Font', class: 'form-label' %><br>
+
+    <div class="custom-file-upload">
+      <!-- Styled label acts as button -->
+      <label for="font_file" class="btn btn-outline-primary">
+        Choose Font File
+      </label>
+
+      <!-- Hidden actual file input -->
+      <%= form.file_field :file, id: 'font_file', class: 'd-none', required: true, accept: '.ttf,.otf' %>
+
+      <!-- File name display -->
+      <span id="font-file-name" style="margin-left: 10px; font-style: italic;"></span>
+    </div>
+  </div>
+
+  <div class="form-group mt-2">
+    <%= form.submit 'Upload Font', class: 'btn btn-sm btn-primary' %>
+  </div>
+<% end %>
+
+  <br>
+  <h3 id="font-preview">
+    The quick brown fox jumps over the lazy dog.
+    1234567890
+  </h3>
+  <br>
+  <h2>Uploaded Fonts</h2>
+    <div class="fonts" style='gap:5px;'>
+      <% @fonts.each_with_index do |font, index| %>
+        <div class="font-item" data-font-name="<%= font.name %>">
+        <div style="
+          border-radius:5px;
+          border: 1px solid; 
+          margin-bottom:5px; 
+          height:100px; 
+          display: flex;
+          cursor:pointer;
+          justify-content: center;
+          flex-direction: column;">
+          <p class='mb-0 text-center' style="font-family: '<%= font.name %>';"><%= font.name %></p>
+        </div>
+        <%= button_to 'Delete', spree.admin_destroy_font_path(font.id), method: :delete, data: { confirm: 'Are you sure?' }, class: 'btn btn-danger' %>
+      </div>
+  <% end %>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const fontInput = document.getElementById('font_file');
+    const fileNameDisplay = document.getElementById('font-file-name');
+
+    fontInput.addEventListener('change', function () {
+      const file = fontInput.files[0];
+      fileNameDisplay.textContent = file ? file.name : '';
+    });
+  });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        fetch('/admin/font')
+            .then(response => response.json())
+            .then(fonts => {
+                fonts.forEach(font => {
+                    const fontName = font.name;
+                    const fontUrl = font.url;
+                    console.log("here")
+
+                    const newFont = new FontFace(fontName, `url(${fontUrl})`);
+                    newFont.load().then(function (loadedFace) {
+                        document.fonts.add(loadedFace);
+                    }).catch(err => {
+                        console.error(`Failed to load font "${fontName}":`, err);
+                    });
+                });
+            })
+            .catch(error => {
+                console.error('Error loading fonts:', error);
+            });
+    });
+</script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const fontPreview = document.getElementById("font-preview");
+    const fontItems = document.querySelectorAll(".font-item");
+
+    // Handle font click selection
+    fontItems.forEach(item => {
+      item.addEventListener("click", function () {
+        const selectedFont = this.getAttribute("data-font-name");
+
+        // Apply font to preview
+        if (selectedFont && fontPreview) {
+          fontPreview.style.fontFamily = `'${selectedFont}'`;
+        }
+
+        // Update selected state
+        fontItems.forEach(el => el.classList.remove("selected"));
+        this.classList.add("selected");
+      });
+    });
+
+    // Auto-select the first font item on load
+    if (fontItems.length > 0) {
+      const firstFontItem = fontItems[0];
+      const firstFontName = firstFontItem.getAttribute("data-font-name");
+
+      if (firstFontName && fontPreview) {
+        fontPreview.style.fontFamily = `'${firstFontName}'`;
+        firstFontItem.classList.add("selected");
+      }
+    }
+  });
+</script>

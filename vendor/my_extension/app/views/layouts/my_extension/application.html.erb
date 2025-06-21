@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My extension</title>
+  <%= csrf_meta_tags %>
+  <%= csp_meta_tag %>
+
+   <%#= stylesheet_link_tag    "my_extension/application", media: "all" %>
+ <style>
+    canvas {
+      border: 1px solid #ccc;
+      margin-top: 20px;
+    }
+    .image-section.highlighted,
+    .text-controls.highlighted {
+      border: 2px solid #007bff;
+      background-color: #eef6ff;
+    }
+    .image-controls,
+    .variant-group {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+   .option-image-container{
+     position:relative;
+    }
+    .option-image-controls {
+      display: flex;
+      gap: 1
+    }
+
+    .variant-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .variant-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .variant-item {
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .variant-item img {
+      max-width: 80px;
+      max-height: 80px;
+      display: block;
+      border: 1px solid #ccc;
+    }
+
+    .popup,
+    .popup-overlay {
+      display: none;
+    }
+
+    .popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #fff;
+      padding: 20px;
+      border: 2px solid #ccc;
+      z-index: 100;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    .popup-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 50;
+    }
+
+    .controls {
+      margin-top: 20px;
+    }
+
+    .text-controls {
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .text-controls input,
+    .text-controls select {
+      margin-right: 5px;
+    }
+
+    .text-controls button {
+      margin-top: 10px;
+    }
+
+    .text-item {
+      margin-bottom: 10px;
+    }
+
+    .remove-icon {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      cursor: pointer;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+</style>
+
+</head>
+<body>
+
+<%= yield %>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+</body>
+</html>
